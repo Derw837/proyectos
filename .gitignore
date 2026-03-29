@@ -1,0 +1,39 @@
+# Flutter
+.dart_tool/
+.packages
+build/
+.pub-cache/
+.pu/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Android
+android/.gradle/
+android/app/build/
+/android/*.hprof
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/
+
+# macOS
+macos/Flutter/ephemeral/
+
+# Windows
+windows/flutter/ephemeral/
+
+# Linux
+linux/flutter/ephemeral/
+
+# IDE
+.idea/
+.vscode/
+
+# Others
+*.log
+*.tmp
+*.lock
+
+*.hprof
+*.pyc

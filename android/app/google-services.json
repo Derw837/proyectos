@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "151635480039",
+    "project_id": "red-cristiana-pigo",
+    "storage_bucket": "red-cristiana-pigo.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:151635480039:android:2e505d9981ed3cf1cdc142",
+        "android_client_info": {
+          "package_name": "com.example.red_cristiana"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDu342gzKR9A9FJ_PwcSxsGbflAjhD9ftI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

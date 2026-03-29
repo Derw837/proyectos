@@ -1,0 +1,236 @@
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+
+class VideoDetailScreen extends StatefulWidget {
+  final Map<String, dynamic> video;
+
+  const VideoDetailScreen({
+    super.key,
+    required this.video,
+  });
+
+  @override
+  State<VideoDetailScreen> createState() => _VideoDetailScreenState();
+}
+
+class _VideoDetailScreenState extends State<VideoDetailScreen> {
+  YoutubePlayerController? _youtubeController;
+  bool isYoutubeVideo = false;
+  bool playerError = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final videoUrl = widget.video['video_url']?.toString() ?? '';
+    final youtubeId = _extractYoutubeId(videoUrl);
+
+    if (youtubeId != null && youtubeId.isNotEmpty) {
+      isYoutubeVideo = true;
+
+      _youtubeController = YoutubePlayerController.fromVideoId(
+        videoId: youtubeId,
+        autoPlay: false,
+        params: const YoutubePlayerParams(
+          showControls: true,
+          showFullscreenButton: true,
+          enableJavaScript: true,
+          strictRelatedVideos: true,
+        ),
+      );
+
+      _youtubeController!.listen((value) {
+        final error = value.error;
+        if (error != YoutubeError.none && mounted) {
+          setState(() {
+            playerError = true;
+          });
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _youtubeController?.close();
+    super.dispose();
+  }
+
+  String? _extractYoutubeId(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return null;
+
+    if (uri.host.contains('youtube.com')) {
+      return uri.queryParameters['v'];
+    }
+
+    if (uri.host.contains('youtu.be')) {
+      if (uri.pathSegments.isNotEmpty) {
+        return uri.pathSegments.first;
+      }
+    }
+
+    return null;
+  }
+
+  Future<void> _openExternally(String url) async {
+    final uri = Uri.parse(url);
+
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo abrir el video')),
+      );
+    }
+  }
+
+  String _categoryLabel(String value) {
+    switch (value) {
+      case 'pelicula':
+        return 'Película';
+      case 'serie':
+        return 'Serie';
+      case 'predicacion':
+        return 'Predicación';
+      case 'testimonio':
+        return 'Testimonio';
+      default:
+        return 'Otro';
+    }
+  }
+
+  Widget _buildTopPlayer(String thumbnailUrl, String videoUrl) {
+    if (isYoutubeVideo && _youtubeController != null && !playerError) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: YoutubePlayer(
+            controller: _youtubeController!,
+            aspectRatio: 16 / 9,
+          ),
+        ),
+      );
+    }
+
+    if (thumbnailUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Image.network(
+          thumbnailUrl,
+          width: double.infinity,
+          height: 220,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      height: 220,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade300,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: const Icon(Icons.play_circle_outline, size: 70),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = widget.video['title']?.toString() ?? '';
+    final description = widget.video['description']?.toString() ?? '';
+    final category = widget.video['category']?.toString() ?? 'otro';
+    final videoUrl = widget.video['video_url']?.toString() ?? '';
+    final thumbnailUrl = widget.video['thumbnail_url']?.toString() ?? '';
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F9FC),
+      appBar: AppBar(
+        title: const Text('Video'),
+        centerTitle: true,
+        backgroundColor: const Color(0xFFF7F9FC),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildTopPlayer(thumbnailUrl, videoUrl),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAF4FF),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                _categoryLabel(category),
+                style: const TextStyle(
+                  color: Color(0xFF0D47A1),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                height: 1.3,
+                color: Color(0xFF0D1B2A),
+              ),
+            ),
+            if (description.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                description,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: Colors.black87,
+                  height: 1.5,
+                ),
+              ),
+            ],
+            const SizedBox(height: 22),
+            if (isYoutubeVideo && playerError)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: const Text(
+                  'Este video no permite reproducción interna embebida. Puedes abrirlo externamente.',
+                  style: TextStyle(height: 1.4),
+                ),
+              ),
+            if (!isYoutubeVideo || playerError) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: videoUrl.isEmpty ? null : () => _openExternally(videoUrl),
+                  icon: const Icon(Icons.open_in_new),
+                  label: const Text('Abrir video'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0D47A1),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
