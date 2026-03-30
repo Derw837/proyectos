@@ -4,6 +4,7 @@ class MainHeader extends StatelessWidget {
   final VoidCallback? onNotifications;
   final VoidCallback? onDonate;
   final VoidCallback? onStore;
+  final VoidCallback? onProfile;
   final int notificationCount;
 
   const MainHeader({
@@ -11,6 +12,7 @@ class MainHeader extends StatelessWidget {
     this.onNotifications,
     this.onDonate,
     this.onStore,
+    this.onProfile,
     this.notificationCount = 0,
   });
 
@@ -31,7 +33,6 @@ class MainHeader extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          /// LOGO / TITULO
           const Expanded(
             child: Text(
               'Red Cristiana',
@@ -42,14 +43,12 @@ class MainHeader extends StatelessWidget {
             ),
           ),
 
-          /// 🔔 CAMPANITA (SIN TEXTO)
           Stack(
             children: [
               IconButton(
                 onPressed: onNotifications,
                 icon: const Icon(Icons.notifications_outlined),
               ),
-
               if (notificationCount > 0)
                 Positioned(
                   right: 6,
@@ -73,7 +72,6 @@ class MainHeader extends StatelessWidget {
             ],
           ),
 
-          /// 💖 DONAR (CON TEXTO ABAJO)
           _HeaderIconWithLabel(
             icon: Icons.favorite_outline,
             label: 'Donar',
@@ -82,11 +80,18 @@ class MainHeader extends StatelessWidget {
 
           const SizedBox(width: 6),
 
-          /// 🛒 TIENDA (CON TEXTO ABAJO)
           _HeaderIconWithLabel(
             icon: Icons.storefront_outlined,
             label: 'Tienda',
             onTap: onStore,
+          ),
+
+          const SizedBox(width: 6),
+
+          _HeaderIconWithLabel(
+            icon: Icons.person_outline,
+            label: 'Perfil',
+            onTap: onProfile,
           ),
         ],
       ),
@@ -118,6 +123,7 @@ class _HeaderIconWithLabel extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               label,
+              textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w500,

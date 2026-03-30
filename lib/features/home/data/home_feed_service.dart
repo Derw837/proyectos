@@ -154,6 +154,13 @@ class HomeFeedService {
 
       if (church == null) continue;
 
+      final likesResponse = await _client
+          .from('church_video_likes')
+          .select('id, user_id')
+          .eq('video_id', video['id']);
+
+      final likes = List<Map<String, dynamic>>.from(likesResponse);
+
       feedItems.add({
         'type': 'video',
         'id': video['id'],
@@ -164,6 +171,10 @@ class HomeFeedService {
         'video_url': video['video_url'],
         'thumbnail_url': video['thumbnail_url'],
         'created_at': video['created_at'],
+        'likes_count': likes.length,
+        'liked_by_me': user == null
+            ? false
+            : likes.any((like) => like['user_id'] == user.id),
         'is_my_church': myChurchId != null && myChurchId == churchId,
       });
     }
@@ -202,6 +213,33 @@ class HomeFeedService {
     } else {
       await _client.from('church_post_likes').insert({
         'post_id': postId,
+        'user_id': user.id,
+      });
+    }
+  }
+
+  static Future<void> toggleVideoLike(String videoId) async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw Exception('Debes iniciar sesión');
+    }
+
+    final existing = await _client
+        .from('church_video_likes')
+        .select()
+        .eq('video_id', videoId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+    if (existing != null) {
+      await _client
+          .from('church_video_likes')
+          .delete()
+          .eq('video_id', videoId)
+          .eq('user_id', user.id);
+    } else {
+      await _client.from('church_video_likes').insert({
+        'video_id': videoId,
         'user_id': user.id,
       });
     }

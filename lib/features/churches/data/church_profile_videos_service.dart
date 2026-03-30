@@ -28,6 +28,8 @@ class ChurchProfileVideosService {
   }
 
   static Future<List<Map<String, dynamic>>> getChurchVideos(String churchId) async {
+    final user = _client.auth.currentUser;
+
     final response = await _client
         .from('church_profile_videos')
         .select()
@@ -35,7 +37,26 @@ class ChurchProfileVideosService {
         .eq('is_active', true)
         .order('created_at', ascending: false);
 
-    return List<Map<String, dynamic>>.from(response);
+    final videos = List<Map<String, dynamic>>.from(response);
+
+    for (final video in videos) {
+      final videoId = video['id']?.toString() ?? '';
+      if (videoId.isEmpty) continue;
+
+      final likesResponse = await _client
+          .from('church_video_likes')
+          .select('id, user_id')
+          .eq('video_id', videoId);
+
+      final likes = List<Map<String, dynamic>>.from(likesResponse);
+
+      video['likes_count'] = likes.length;
+      video['liked_by_me'] = user == null
+          ? false
+          : likes.any((like) => like['user_id'] == user.id);
+    }
+
+    return videos;
   }
 
   static Future<void> createVideo({
@@ -57,6 +78,33 @@ class ChurchProfileVideosService {
 
   static Future<void> deleteVideo(String videoId) async {
     await _client.from('church_profile_videos').delete().eq('id', videoId);
+  }
+
+  static Future<void> toggleVideoLike(String videoId) async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw Exception('Debes iniciar sesión');
+    }
+
+    final existing = await _client
+        .from('church_video_likes')
+        .select()
+        .eq('video_id', videoId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+    if (existing != null) {
+      await _client
+          .from('church_video_likes')
+          .delete()
+          .eq('video_id', videoId)
+          .eq('user_id', user.id);
+    } else {
+      await _client.from('church_video_likes').insert({
+        'video_id': videoId,
+        'user_id': user.id,
+      });
+    }
   }
 
   static String? extractYoutubeId(String url) {

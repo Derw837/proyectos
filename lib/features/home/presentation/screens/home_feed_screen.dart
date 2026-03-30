@@ -358,6 +358,18 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
   }
 
+  Future<void> _toggleVideoLike(String videoId) async {
+    try {
+      await HomeFeedService.toggleVideoLike(videoId);
+      await _loadFeed();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error en Me gusta: $e')),
+      );
+    }
+  }
+
   Widget _filterChip(String value, String label, IconData icon) {
     final isSelected = selectedTab == value;
 
@@ -573,6 +585,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     final description = item['content']?.toString() ?? '';
     final thumbnailUrl = item['thumbnail_url']?.toString() ?? '';
     final createdAt = item['created_at']?.toString() ?? '';
+    final likesCount = item['likes_count'] ?? 0;
+    final likedByMe = item['liked_by_me'] ?? false;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -676,6 +690,19 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                     ),
                   ),
                 ],
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => _toggleVideoLike(item['id'].toString()),
+                      icon: Icon(
+                        likedByMe ? Icons.favorite : Icons.favorite_border,
+                        color: likedByMe ? Colors.red : Colors.black54,
+                      ),
+                    ),
+                    Text('$likesCount Me gusta'),
+                  ],
+                ),
               ],
             ),
           ),

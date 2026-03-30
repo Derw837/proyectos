@@ -65,7 +65,17 @@ class _EventsScreenState extends State<EventsScreen> {
     }
   }
 
-  Future<void> _showNearMe() async {
+  Future<void> _toggleNearMe() async {
+    if (nearMeOnly) {
+      setState(() {
+        nearMeOnly = false;
+        selectedCountry = '';
+        selectedCity = '';
+        _applyFilters();
+      });
+      return;
+    }
+
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
 
@@ -80,18 +90,14 @@ class _EventsScreenState extends State<EventsScreen> {
     final myCountry = profile['country']?.toString() ?? '';
     final myCity = profile['city']?.toString() ?? '';
 
-    final results = allEvents.where((event) {
-      final country = event['country']?.toString() ?? '';
-      final city = event['city']?.toString() ?? '';
-      return country == myCountry && city == myCity;
-    }).toList();
-
     setState(() {
       nearMeOnly = true;
       selectedCountry = myCountry;
       selectedCity = myCity;
-      filteredEvents = results;
+      searchController.clear();
     });
+
+    _applyFilters();
   }
 
   void _applyFilters() {
@@ -564,20 +570,21 @@ class _EventsScreenState extends State<EventsScreen> {
     return Padding(
       padding: const EdgeInsets.only(right: 10),
       child: ActionChip(
-        onPressed: _showNearMe,
-        avatar: const Icon(Icons.near_me, size: 18),
-        label: Text(nearMeOnly ? 'Cerca de ti activo' : 'Cerca de ti'),
-      ),
-    );
-  }
-
-  Widget _clearChip() {
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: ActionChip(
-        onPressed: _clearFilters,
-        avatar: const Icon(Icons.clear_all, size: 18),
-        label: const Text('Limpiar'),
+        onPressed: _toggleNearMe,
+        avatar: Icon(
+          nearMeOnly ? Icons.list_alt : Icons.near_me,
+          size: 18,
+          color: nearMeOnly ? Colors.white : null,
+        ),
+        label: Text(
+          nearMeOnly ? 'Ver todos los eventos' : 'Cerca de ti',
+          style: TextStyle(
+            color: nearMeOnly ? Colors.white : null,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor:
+            nearMeOnly ? Colors.deepOrange : null,
       ),
     );
   }
@@ -599,7 +606,6 @@ class _EventsScreenState extends State<EventsScreen> {
               children: [
                 _searchChip(),
                 _nearMeChip(),
-                _clearChip(),
               ],
             ),
           ),

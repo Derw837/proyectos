@@ -79,23 +79,11 @@ class _AppVideoPlayerScreenState extends State<AppVideoPlayerScreen> {
     if (_controller == null) return;
 
     final value = _controller!.value;
-    if (value.isFullScreen != _isFullscreen) {
+
+    if (value.isFullScreen != _isFullscreen && mounted) {
       setState(() {
         _isFullscreen = value.isFullScreen;
       });
-
-      if (_isFullscreen) {
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-        SystemChrome.setPreferredOrientations([
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight,
-        ]);
-      } else {
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-        SystemChrome.setPreferredOrientations([
-          DeviceOrientation.portraitUp,
-        ]);
-      }
     }
   }
 
@@ -115,12 +103,6 @@ class _AppVideoPlayerScreenState extends State<AppVideoPlayerScreen> {
   void dispose() {
     _controller?.removeListener(_videoListener);
     _controller?.dispose();
-
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
-
     super.dispose();
   }
 

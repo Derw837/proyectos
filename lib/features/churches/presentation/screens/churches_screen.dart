@@ -75,7 +75,17 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
     }
   }
 
-  Future<void> _showNearMe() async {
+  Future<void> _toggleNearMe() async {
+    if (nearMeOnly) {
+      setState(() {
+        nearMeOnly = false;
+        selectedCountry = '';
+        selectedCity = '';
+        _applyFilters();
+      });
+      return;
+    }
+
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
 
@@ -90,16 +100,14 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
     final myCountry = profile['country']?.toString() ?? '';
     final myCity = profile['city']?.toString() ?? '';
 
-    final results = allChurches.where((church) {
-      return church.country == myCountry && church.city == myCity;
-    }).toList();
-
     setState(() {
       nearMeOnly = true;
       selectedCountry = myCountry;
       selectedCity = myCity;
-      filteredChurches = results;
+      searchController.clear();
     });
+
+    _applyFilters();
   }
 
   void _applyFilters() {
@@ -397,20 +405,21 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
     return Padding(
       padding: const EdgeInsets.only(right: 10),
       child: ActionChip(
-        onPressed: _showNearMe,
-        avatar: const Icon(Icons.near_me, size: 18),
-        label: Text(nearMeOnly ? 'Cerca de ti activo' : 'Cerca de ti'),
-      ),
-    );
-  }
-
-  Widget _clearChip() {
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: ActionChip(
-        onPressed: _clearFilters,
-        avatar: const Icon(Icons.clear_all, size: 18),
-        label: const Text('Limpiar'),
+        onPressed: _toggleNearMe,
+        avatar: Icon(
+          nearMeOnly ? Icons.list_alt : Icons.near_me,
+          size: 18,
+          color: nearMeOnly ? Colors.white : null,
+        ),
+        label: Text(
+          nearMeOnly ? 'Ver todas las iglesias' : 'Cerca de ti',
+          style: TextStyle(
+            color: nearMeOnly ? Colors.white : null,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor:
+        nearMeOnly ? const Color(0xFF0D47A1) : null,
       ),
     );
   }
@@ -618,7 +627,6 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
               children: [
                 _searchChip(),
                 _nearMeChip(),
-                _clearChip(),
               ],
             ),
           ),

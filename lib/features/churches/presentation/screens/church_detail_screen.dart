@@ -248,6 +248,18 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
     }
   }
 
+  Future<void> _toggleVideoLike(String videoId) async {
+    try {
+      await ChurchProfileVideosService.toggleVideoLike(videoId);
+      await _loadVideos();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error en Me gusta: $e')),
+      );
+    }
+  }
+
   Future<void> _openUrl(String url) async {
     if (url.trim().isEmpty) return;
 
@@ -463,20 +475,22 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
     final title = video['title']?.toString() ?? '';
     final description = video['description']?.toString() ?? '';
     final thumbnailUrl = video['thumbnail_url']?.toString() ?? '';
+    final likes = video['likes_count'] ?? 0;
+    final liked = video['liked_by_me'] == true;
 
     return InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: () {
         Navigator.push(
-                context,
-                  MaterialPageRoute(
-                  builder: (_) => AppVideoPlayerScreen(
-                  title: video['title']?.toString() ?? '',
-                  description: video['description']?.toString() ?? '',
-                  videoUrl: video['video_url']?.toString() ?? '',
-                  ),
-                ),
-              );
+          context,
+          MaterialPageRoute(
+            builder: (_) => AppVideoPlayerScreen(
+              title: video['title']?.toString() ?? '',
+              description: video['description']?.toString() ?? '',
+              videoUrl: video['video_url']?.toString() ?? '',
+            ),
+          ),
+        );
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 14),
@@ -522,6 +536,19 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => _toggleVideoLike(video['id'].toString()),
+                        icon: Icon(
+                          liked ? Icons.favorite : Icons.favorite_border,
+                          color: liked ? Colors.red : Colors.black54,
+                        ),
+                      ),
+                      Text('$likes Me gusta'),
+                    ],
+                  ),
                 ],
               ),
             ),

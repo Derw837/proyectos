@@ -6,6 +6,7 @@ import 'package:red_cristiana/core/widgets/main_header.dart';
 import 'package:red_cristiana/features/churches/presentation/screens/churches_screen.dart';
 import 'package:red_cristiana/features/events/presentation/screens/events_screen.dart';
 import 'package:red_cristiana/features/home/presentation/screens/home_feed_screen.dart';
+import 'package:red_cristiana/features/live_tv/presentation/screens/live_tv_screen.dart';
 import 'package:red_cristiana/features/media/presentation/screens/media_screen.dart';
 import 'package:red_cristiana/features/notifications/data/notifications_service.dart';
 import 'package:red_cristiana/features/notifications/presentation/screens/notifications_screen.dart';
@@ -31,7 +32,7 @@ class _UserMainNavigationScreenState extends State<UserMainNavigationScreen> {
     EventsScreen(),
     MediaScreen(),
     RadiosScreen(),
-    ProfileScreen(),
+    LiveTvScreen(),
   ];
 
   @override
@@ -92,6 +93,15 @@ class _UserMainNavigationScreenState extends State<UserMainNavigationScreen> {
     );
   }
 
+  Future<void> _openProfile() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ProfileScreen(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
@@ -105,6 +115,7 @@ class _UserMainNavigationScreenState extends State<UserMainNavigationScreen> {
                 onNotifications: _openNotifications,
                 onDonate: _openDonate,
                 onStore: _openStore,
+                onProfile: _openProfile,
               ),
               Expanded(
                 child: IndexedStack(
@@ -188,9 +199,9 @@ class _UserMainNavigationScreenState extends State<UserMainNavigationScreen> {
                 label: isPlaying ? 'Sonando' : 'Radios',
               ),
               const NavigationDestination(
-                icon: Icon(Icons.person_outline),
-                selectedIcon: Icon(Icons.person),
-                label: 'Perfil',
+                icon: Icon(Icons.live_tv_outlined),
+                selectedIcon: Icon(Icons.live_tv),
+                label: 'TV',
               ),
             ],
           ),
