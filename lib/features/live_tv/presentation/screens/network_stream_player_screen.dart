@@ -30,6 +30,8 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
   bool _showChannelDrawer = false;
 
   Timer? _hideTimer;
+  bool _wasPlayingBeforePause = false;
+  bool _isRestoringFromLifecycle = false;
 
   Map<String, dynamic> get currentChannel => widget.channels[_currentIndex];
 
@@ -51,7 +53,7 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _hideTimer?.cancel();
-    _controller?.dispose();
+    _disposeController();
 
     WakelockPlus.disable();
 
@@ -64,21 +66,75 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
     super.dispose();
   }
 
+  Future<void> _disposeController() async {
+    final controller = _controller;
+    _controller = null;
+    if (controller != null) {
+      try {
+        await controller.pause();
+      } catch (_) {}
+      try {
+        await controller.dispose();
+      } catch (_) {}
+    }
+  }
+
+  String _friendlyErrorMessage(Object error) {
+    final text = error.toString().toLowerCase();
+
+    if (text.contains('source error')) {
+      return 'Canal no disponible por este momento.';
+    }
+
+    if (text.contains('mediacodecaudiorenderer') ||
+        text.contains('audio renderer')) {
+      return 'Ocurrió un problema al restaurar el audio/video del canal. Toca "Reintentar".';
+    }
+
+    if (text.contains('behindlivewindowexception')) {
+      return 'La transmisión se desfasó. Toca "Reintentar".';
+    }
+
+    if (text.contains('network') || text.contains('socket')) {
+      return 'Problema de conexión. Revisa internet e inténtalo nuevamente.';
+    }
+
+    return 'No se pudo reproducir este canal por este momento.';
+  }
+
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    final controller = _controller;
+
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      _wasPlayingBeforePause = controller?.value.isPlaying ?? false;
+      await WakelockPlus.disable();
+      await _disposeController();
+      return;
+    }
+
     if (state == AppLifecycleState.resumed) {
-      WakelockPlus.enable();
-    } else if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive) {
-      WakelockPlus.disable();
+      await WakelockPlus.enable();
+
+      if (!_isRestoringFromLifecycle) {
+        _isRestoringFromLifecycle = true;
+        try {
+          await _initVideo(autoPlay: _wasPlayingBeforePause || true);
+        } finally {
+          _isRestoringFromLifecycle = false;
+        }
+      }
     }
   }
 
   @override
   void didChangeMetrics() {
-    final orientation = MediaQuery.of(context).orientation;
+    final view = WidgetsBinding.instance.platformDispatcher.views.first;
+    final size = view.physicalSize;
+    final isLandscape = size.width > size.height;
 
-    if (orientation == Orientation.landscape) {
+    if (isLandscape) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     } else {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -103,19 +159,26 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
     _startAutoHideTimer();
   }
 
-  Future<void> _initVideo() async {
+  Future<void> _initVideo({bool autoPlay = true}) async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
     try {
-      await _controller?.dispose();
+      await _disposeController();
 
-      _controller = VideoPlayerController.networkUrl(Uri.parse(currentUrl));
-      await _controller!.initialize();
-      await _controller!.setLooping(false);
-      await _controller!.play();
+      final controller =
+      VideoPlayerController.networkUrl(Uri.parse(currentUrl));
+
+      _controller = controller;
+
+      await controller.initialize();
+      await controller.setLooping(false);
+
+      if (autoPlay) {
+        await controller.play();
+      }
 
       await WakelockPlus.enable();
 
@@ -132,12 +195,16 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
       if (!mounted) return;
 
       setState(() {
-        _error = 'No se pudo reproducir este canal.\n$e';
+        _error = _friendlyErrorMessage(e);
         _isLoading = false;
       });
 
       _showUI();
     }
+  }
+
+  Future<void> _retryCurrentChannel() async {
+    await _initVideo(autoPlay: true);
   }
 
   Future<void> _goToChannel(int index) async {
@@ -148,7 +215,7 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
       _showChannelDrawer = false;
     });
 
-    await _initVideo();
+    await _initVideo(autoPlay: true);
   }
 
   Future<void> _nextChannel() async {
@@ -164,9 +231,11 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
   }
 
   void _toggleFullscreen() {
-    final orientation = MediaQuery.of(context).orientation;
+    final view = WidgetsBinding.instance.platformDispatcher.views.first;
+    final size = view.physicalSize;
+    final isLandscape = size.width > size.height;
 
-    if (orientation == Orientation.portrait) {
+    if (!isLandscape) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
@@ -181,6 +250,56 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
     }
 
     _showUI();
+  }
+
+  Widget _buildErrorView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.tv_off,
+              color: Colors.white70,
+              size: 54,
+            ),
+            const SizedBox(height: 18),
+            Text(
+              _error ?? 'No se pudo reproducir este canal.',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              alignment: WrapAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _retryCurrentChannel,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Reintentar'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _nextChannel,
+                  icon: const Icon(Icons.skip_next),
+                  label: const Text('Otro canal'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white30),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildChannelDrawer() {
@@ -314,8 +433,11 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
               children: [
                 IconButton(
                   onPressed: () async {
-                    final orientation = MediaQuery.of(context).orientation;
-                    if (orientation == Orientation.landscape) {
+                    final view = WidgetsBinding.instance.platformDispatcher.views.first;
+                    final size = view.physicalSize;
+                    final landscape = size.width > size.height;
+
+                    if (landscape) {
                       SystemChrome.setPreferredOrientations([
                         DeviceOrientation.portraitUp,
                         DeviceOrientation.portraitDown,
@@ -517,23 +639,9 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _error != null
-                  ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: Colors.white),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              )
+                  ? _buildErrorView()
                   : controller == null
-                  ? const Center(
-                child: Text(
-                  'No se pudo iniciar el reproductor',
-                  style: TextStyle(color: Colors.white),
-                ),
-              )
+                  ? _buildErrorView()
                   : Center(
                 child: AspectRatio(
                   aspectRatio: controller.value.aspectRatio == 0
