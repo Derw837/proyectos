@@ -3,10 +3,20 @@ import 'package:red_cristiana/features/churches/data/models/church_model.dart';
 import 'package:red_cristiana/features/churches/presentation/screens/church_detail_screen.dart';
 import 'package:red_cristiana/features/events/data/church_events_service.dart';
 import 'package:red_cristiana/features/events/presentation/screens/event_detail_screen.dart';
+import 'package:red_cristiana/core/widgets/network_error_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class EventsScreen extends StatefulWidget {
-  const EventsScreen({super.key});
+  final String? initialChurchId;
+  final String? initialChurchName;
+  final bool allowResetToGeneral;
+
+  const EventsScreen({
+    super.key,
+    this.initialChurchId,
+    this.initialChurchName,
+    this.allowResetToGeneral = true,
+  });
 
   @override
   State<EventsScreen> createState() => _EventsScreenState();
@@ -15,6 +25,8 @@ class EventsScreen extends StatefulWidget {
 class _EventsScreenState extends State<EventsScreen> {
   bool isLoading = true;
   bool nearMeOnly = false;
+  bool hasError = false;
+  String errorMessage = '';
 
   List<Map<String, dynamic>> allEvents = [];
   List<Map<String, dynamic>> filteredEvents = [];
@@ -26,10 +38,12 @@ class _EventsScreenState extends State<EventsScreen> {
 
   String selectedCountry = '';
   String selectedCity = '';
+  String selectedChurchId = '';
 
   @override
   void initState() {
     super.initState();
+    selectedChurchId = widget.initialChurchId ?? '';
     _loadEvents();
     searchController.addListener(_applyFilters);
   }
@@ -42,6 +56,12 @@ class _EventsScreenState extends State<EventsScreen> {
 
   Future<void> _loadEvents() async {
     try {
+      setState(() {
+        isLoading = true;
+        hasError = false;
+        errorMessage = '';
+      });
+
       final data = await ChurchEventsService.getPublishedEvents();
       final countriesData =
       await ChurchEventsService.getAvailableEventCountries();
@@ -50,18 +70,22 @@ class _EventsScreenState extends State<EventsScreen> {
       if (!mounted) return;
       setState(() {
         allEvents = data;
-        filteredEvents = data;
         countries = countriesData;
         cities = citiesData;
         isLoading = false;
+        hasError = false;
       });
+
+      _applyCurrentFilters();
     } catch (e) {
       if (!mounted) return;
-      setState(() => isLoading = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error cargando eventos: $e')),
-      );
+      setState(() {
+        isLoading = false;
+        hasError = true;
+        errorMessage =
+        'Creo que no tienes internet. Verifica tu conexión y vuelve a intentarlo.';
+      });
     }
   }
 
@@ -100,6 +124,10 @@ class _EventsScreenState extends State<EventsScreen> {
     _applyFilters();
   }
 
+  void _applyCurrentFilters() {
+    _applyFilters();
+  }
+
   void _applyFilters() {
     final query = searchController.text.trim().toLowerCase();
 
@@ -108,6 +136,7 @@ class _EventsScreenState extends State<EventsScreen> {
       final description = event['description']?.toString().toLowerCase() ?? '';
       final city = event['city']?.toString() ?? '';
       final country = event['country']?.toString() ?? '';
+      final churchId = event['church_id']?.toString() ?? '';
 
       String churchName = '';
       final churchData = event['churches'];
@@ -124,9 +153,13 @@ class _EventsScreenState extends State<EventsScreen> {
 
       final matchesCountry =
           selectedCountry.isEmpty || country == selectedCountry;
+
       final matchesCity = selectedCity.isEmpty || city == selectedCity;
 
-      return matchesQuery && matchesCountry && matchesCity;
+      final matchesChurch =
+          selectedChurchId.isEmpty || churchId == selectedChurchId;
+
+      return matchesQuery && matchesCountry && matchesCity && matchesChurch;
     }).toList();
 
     setState(() {
@@ -158,7 +191,7 @@ class _EventsScreenState extends State<EventsScreen> {
               required IconData icon,
             }) {
               return DropdownButtonFormField<String>(
-                value: value.isEmpty ? null : value,
+                initialValue: value.isEmpty ? null : value,
                 isExpanded: true,
                 decoration: InputDecoration(
                   labelText: label,
@@ -316,14 +349,28 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
+  void _resetToGeneralEvents() {
+    searchController.clear();
+
+    setState(() {
+      nearMeOnly = false;
+      selectedCountry = '';
+      selectedCity = '';
+      selectedChurchId = '';
+    });
+
+    _applyFilters();
+  }
+
   void _clearFilters() {
     searchController.clear();
     setState(() {
       nearMeOnly = false;
       selectedCountry = '';
       selectedCity = '';
-      filteredEvents = allEvents;
+      selectedChurchId = '';
     });
+    _applyFilters();
   }
 
   Widget _eventCard(Map<String, dynamic> event) {
@@ -399,7 +446,9 @@ class _EventsScreenState extends State<EventsScreen> {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFFF3E0),
                           borderRadius: BorderRadius.circular(999),
@@ -416,7 +465,9 @@ class _EventsScreenState extends State<EventsScreen> {
                       if (date.isNotEmpty)
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF5F5F5),
                             borderRadius: BorderRadius.circular(999),
@@ -583,8 +634,7 @@ class _EventsScreenState extends State<EventsScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        backgroundColor:
-            nearMeOnly ? Colors.deepOrange : null,
+        backgroundColor: nearMeOnly ? Colors.deepOrange : null,
       ),
     );
   }
@@ -595,9 +645,48 @@ class _EventsScreenState extends State<EventsScreen> {
       backgroundColor: const Color(0xFFF7F9FC),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
+          : hasError
+          ? NetworkErrorView(
+        message: errorMessage,
+        onRetry: _loadEvents,
+      )
           : Column(
         children: [
           _miniHeader(),
+          if (selectedChurchId.isNotEmpty &&
+              widget.initialChurchName != null &&
+              widget.initialChurchName!.trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.event, color: Color(0xFF0D47A1)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Mostrando eventos de ${widget.initialChurchName}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                    ),
+                    if (widget.allowResetToGeneral)
+                      TextButton(
+                        onPressed: _resetToGeneralEvents,
+                        child: const Text('Ver todos'),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           SizedBox(
             height: 48,
             child: ListView(

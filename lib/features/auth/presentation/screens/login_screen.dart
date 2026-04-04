@@ -31,9 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      isLoading = true;
-    });
+    setState(() => isLoading = true);
 
     try {
       await Supabase.instance.client.auth.signInWithPassword(
@@ -49,47 +47,29 @@ class _LoginScreenState extends State<LoginScreen> {
             (route) => false,
       );
     } on AuthException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Ocurrió un error inesperado al iniciar sesión.'),
         ),
       );
     } finally {
-      if (!mounted) return;
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
   Future<void> _loginWithGoogle() async {
-    setState(() {
-      isGoogleLoading = true;
-    });
+    setState(() => isGoogleLoading = true);
 
     try {
       await AuthService.signInWithGoogle();
-    } on AuthException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error con Google: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error con Google: $e')));
     } finally {
-      if (!mounted) return;
-      setState(() {
-        isGoogleLoading = false;
-      });
+      if (mounted) setState(() => isGoogleLoading = false);
     }
   }
 
@@ -97,9 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (value == null || value.trim().isEmpty) {
       return 'Ingresa tu correo electrónico';
     }
-    if (!value.contains('@') || !value.contains('.')) {
-      return 'Ingresa un correo válido';
-    }
+    if (!value.contains('@')) return 'Correo inválido';
     return null;
   }
 
@@ -107,178 +85,217 @@ class _LoginScreenState extends State<LoginScreen> {
     if (value == null || value.trim().isEmpty) {
       return 'Ingresa tu contraseña';
     }
-    if (value.trim().length < 6) {
-      return 'La contraseña debe tener al menos 6 caracteres';
-    }
+    if (value.length < 6) return 'Mínimo 6 caracteres';
     return null;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Iniciar sesión'),
-        centerTitle: true,
-      ),
+      backgroundColor: const Color(0xFFF5F7FB),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
-                const Text(
-                  'Bienvenido',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
+          child: Column(
+            children: [
+              const SizedBox(height: 20),
+
+              /// LOGO / ICONO
+              Container(
+                width: 90,
+                height: 90,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D47A1),
+                  borderRadius: BorderRadius.circular(24),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Ingresa para continuar en Red Cristiana',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.black54,
-                  ),
+                child: const Icon(
+                  Icons.church,
+                  color: Colors.white,
+                  size: 46,
                 ),
-                const SizedBox(height: 30),
-                TextFormField(
-                  controller: emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  validator: _validateEmail,
-                  decoration: InputDecoration(
-                    labelText: 'Correo electrónico',
-                    prefixIcon: const Icon(Icons.email_outlined),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
+              ),
+
+              const SizedBox(height: 20),
+
+              const Text(
+                'Red Cristiana',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: passwordController,
-                  obscureText: obscurePassword,
-                  validator: _validatePassword,
-                  decoration: InputDecoration(
-                    labelText: 'Contraseña',
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    suffixIcon: IconButton(
-                      onPressed: () {
-                        setState(() {
-                          obscurePassword = !obscurePassword;
-                        });
-                      },
-                      icon: Icon(
-                        obscurePassword
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                      ),
+              ),
+
+              const SizedBox(height: 6),
+
+              const Text(
+                'Conéctate con tu fe',
+                style: TextStyle(color: Colors.black54),
+              ),
+
+              const SizedBox(height: 30),
+
+              /// TARJETA
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x14000000),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
                     ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 55,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D47A1),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    onPressed: isLoading ? null : _login,
-                    child: isLoading
-                        ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.2,
-                        color: Colors.white,
-                      ),
-                    )
-                        : const Text(
-                      'Entrar',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    const Expanded(child: Divider()),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        'o',
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
-                    ),
-                    const Expanded(child: Divider()),
                   ],
                 ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  height: 55,
-                  child: OutlinedButton.icon(
-                    onPressed: isGoogleLoading ? null : _loginWithGoogle,
-                    icon: isGoogleLoading
-                        ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                        : const Icon(Icons.login),
-                    label: Text(
-                      isGoogleLoading
-                          ? 'Conectando...'
-                          : 'Continuar con Google',
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Center(
-                  child: TextButton(
-                    onPressed: () {},
-                    child: const Text('¿Olvidaste tu contraseña?'),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('¿No tienes cuenta?'),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const RegisterScreen(),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        controller: emailController,
+                        validator: _validateEmail,
+                        decoration: InputDecoration(
+                          hintText: 'Correo electrónico',
+                          prefixIcon: const Icon(Icons.email_outlined),
+                          filled: true,
+                          fillColor: const Color(0xFFF5F7FB),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
                           ),
-                        );
-                      },
-                      child: const Text('Crear cuenta'),
-                    ),
-                  ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      TextFormField(
+                        controller: passwordController,
+                        obscureText: obscurePassword,
+                        validator: _validatePassword,
+                        decoration: InputDecoration(
+                          hintText: 'Contraseña',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            onPressed: () {
+                              setState(() {
+                                obscurePassword = !obscurePassword;
+                              });
+                            },
+                            icon: Icon(
+                              obscurePassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xFFF5F7FB),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      /// BOTÓN LOGIN
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: isLoading ? null : _login,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D47A1),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: isLoading
+                              ? const CircularProgressIndicator(
+                            color: Colors.white,
+                          )
+                              : const Text(
+                            'Entrar',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      Row(
+                        children: const [
+                          Expanded(child: Divider()),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 10),
+                            child: Text('o'),
+                          ),
+                          Expanded(child: Divider()),
+                        ],
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      /// GOOGLE
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: OutlinedButton.icon(
+                          onPressed:
+                          isGoogleLoading ? null : _loginWithGoogle,
+                          icon: isGoogleLoading
+                              ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
+                              : const Icon(Icons.g_mobiledata, size: 28),
+                          label: const Text(
+                            'Continuar con Google',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+
+              const SizedBox(height: 16),
+
+              TextButton(
+                onPressed: () {},
+                child: const Text('¿Olvidaste tu contraseña?'),
+              ),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('¿No tienes cuenta?'),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const RegisterScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text('Crear cuenta'),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

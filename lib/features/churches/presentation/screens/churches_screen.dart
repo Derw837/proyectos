@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:red_cristiana/features/churches/data/church_service.dart';
 import 'package:red_cristiana/features/churches/data/models/church_model.dart';
 import 'package:red_cristiana/features/churches/presentation/screens/church_detail_screen.dart';
+import 'package:red_cristiana/core/widgets/network_error_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ChurchesScreen extends StatefulWidget {
@@ -16,6 +17,8 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
 
   bool isLoading = true;
   bool nearMeOnly = false;
+  bool hasError = false;
+  String errorMessage = '';
 
   List<ChurchModel> allChurches = [];
   List<ChurchModel> filteredChurches = [];
@@ -43,6 +46,12 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
 
   Future<void> _loadData() async {
     try {
+      setState(() {
+        isLoading = true;
+        hasError = false;
+        errorMessage = '';
+      });
+
       final churchesResponse = await ChurchService.getApprovedChurches();
       final countriesResponse = await ChurchService.getAvailableCountries();
       final citiesResponse = await ChurchService.getAvailableCities();
@@ -56,22 +65,23 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
 
       setState(() {
         allChurches = churches;
-        filteredChurches = churches;
         countries = countriesResponse;
         cities = citiesResponse;
         sectors = sectorsResponse;
         isLoading = false;
+        hasError = false;
       });
+
+      _applyCurrentFilters();
     } catch (e) {
       if (!mounted) return;
 
       setState(() {
         isLoading = false;
+        hasError = true;
+        errorMessage =
+        'Creo que no tienes internet. Verifica tu conexión y vuelve a intentarlo.';
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error cargando iglesias: $e')),
-      );
     }
   }
 
@@ -110,6 +120,10 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
     _applyFilters();
   }
 
+  void _applyCurrentFilters() {
+    _applyFilters();
+  }
+
   void _applyFilters() {
     final query = searchController.text.trim().toLowerCase();
 
@@ -144,8 +158,8 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
       selectedCountry = '';
       selectedCity = '';
       selectedSector = '';
-      filteredChurches = allChurches;
     });
+    _applyCurrentFilters();
   }
 
   Future<void> _openSearchSheet() async {
@@ -174,7 +188,7 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
               required IconData icon,
             }) {
               return DropdownButtonFormField<String>(
-                value: value.isEmpty ? null : value,
+                initialValue: value.isEmpty ? null : value,
                 isExpanded: true,
                 decoration: InputDecoration(
                   labelText: label,
@@ -462,7 +476,7 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
                 width: double.infinity,
                 height: 140,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                errorBuilder: (context, error, stackTrace) => Container(
                   width: double.infinity,
                   height: 140,
                   color: const Color(0xFFEAF4FF),
@@ -616,6 +630,11 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
       backgroundColor: const Color(0xFFF7F9FC),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
+          : hasError
+          ? NetworkErrorView(
+        message: errorMessage,
+        onRetry: _loadData,
+      )
           : Column(
         children: [
           _miniHeader(),

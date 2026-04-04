@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:red_cristiana/core/widgets/network_error_view.dart';
 import 'package:red_cristiana/features/media/data/media_video_service.dart';
 import 'package:red_cristiana/features/media/presentation/screens/app_video_player_screen.dart';
 import 'package:red_cristiana/features/media/presentation/screens/network_video_player_screen.dart';
@@ -13,9 +14,15 @@ class MediaScreen extends StatefulWidget {
 
 class _MediaScreenState extends State<MediaScreen> {
   bool isLoading = true;
+  bool hasError = false;
+  String errorMessage = '';
+
   List<Map<String, dynamic>> allVideos = [];
   List<Map<String, dynamic>> filteredVideos = [];
+
   String selectedCategory = 'todos';
+
+  final TextEditingController searchController = TextEditingController();
 
   @override
   void initState() {
@@ -23,40 +30,76 @@ class _MediaScreenState extends State<MediaScreen> {
     _loadVideos();
   }
 
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadVideos() async {
     try {
+      setState(() {
+        isLoading = true;
+        hasError = false;
+        errorMessage = '';
+      });
+
       final data = await MediaVideoService.getActiveVideos();
 
       if (!mounted) return;
+
       setState(() {
         allVideos = data;
-        filteredVideos = data;
         isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        isLoading = false;
+        hasError = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error cargando videos: $e')),
-      );
+      _applyCurrentFilters();
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        isLoading = false;
+        hasError = true;
+        errorMessage =
+        'Creo que no tienes internet. Verifica tu conexión y vuelve a intentarlo.';
+      });
     }
+  }
+
+  void _applyCurrentFilters() {
+    List<Map<String, dynamic>> result = List.from(allVideos);
+
+    if (selectedCategory != 'todos') {
+      result = result
+          .where((video) => video['category']?.toString() == selectedCategory)
+          .toList();
+    }
+
+    final query = searchController.text.trim().toLowerCase();
+    if (query.isNotEmpty) {
+      result = result.where((video) {
+        final title = video['title']?.toString().toLowerCase() ?? '';
+        final description = video['description']?.toString().toLowerCase() ?? '';
+        return title.contains(query) || description.contains(query);
+      }).toList();
+    }
+
+    setState(() {
+      filteredVideos = result;
+    });
+  }
+
+  void _onSearchChanged(String value) {
+    _applyCurrentFilters();
   }
 
   void _filterByCategory(String category) {
     setState(() {
       selectedCategory = category;
-
-      if (category == 'todos') {
-        filteredVideos = allVideos;
-      } else {
-        filteredVideos = allVideos
-            .where((video) => video['category']?.toString() == category)
-            .toList();
-      }
     });
+
+    _applyCurrentFilters();
   }
 
   String _categoryLabel(String value) {
@@ -139,7 +182,7 @@ class _MediaScreenState extends State<MediaScreen> {
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => AppVideoPlayerScreen(
+          builder: (context) => AppVideoPlayerScreen(
             title: title,
             description: description,
             videoUrl: videoUrl,
@@ -153,7 +196,7 @@ class _MediaScreenState extends State<MediaScreen> {
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => NetworkVideoPlayerScreen(
+          builder: (context) => NetworkVideoPlayerScreen(
             title: title,
             description: description,
             videoUrl: videoUrl,
@@ -194,7 +237,7 @@ class _MediaScreenState extends State<MediaScreen> {
           ),
         ),
         selected: isSelected,
-        onSelected: (_) => _filterByCategory(value),
+        onSelected: (selected) => _filterByCategory(value),
         backgroundColor: Colors.white,
         selectedColor: const Color(0xFFDCEBFF),
         shape: RoundedRectangleBorder(
@@ -237,7 +280,7 @@ class _MediaScreenState extends State<MediaScreen> {
             width: 54,
             height: 54,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.16),
+              color: Colors.white.withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(16),
             ),
             child: const Icon(
@@ -273,6 +316,51 @@ class _MediaScreenState extends State<MediaScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBox() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: TextField(
+        controller: searchController,
+        onChanged: _onSearchChanged,
+        decoration: InputDecoration(
+          hintText: 'Buscar película, serie, predicación...',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: searchController.text.isNotEmpty
+              ? IconButton(
+            onPressed: () {
+              searchController.clear();
+              setState(() {});
+              _applyCurrentFilters();
+            },
+            icon: const Icon(Icons.close),
+          )
+              : null,
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(18),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(18),
+            borderSide: BorderSide(color: Colors.grey.shade200),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(18),
+            borderSide: const BorderSide(
+              color: Color(0xFF0D47A1),
+              width: 1.4,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -328,7 +416,7 @@ class _MediaScreenState extends State<MediaScreen> {
                     width: double.infinity,
                     height: 205,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
+                    errorBuilder: (context, error, stackTrace) => Container(
                       width: double.infinity,
                       height: 205,
                       color: Colors.grey.shade300,
@@ -342,15 +430,14 @@ class _MediaScreenState extends State<MediaScreen> {
                     color: Colors.grey.shade300,
                     child: const Icon(Icons.ondemand_video, size: 64),
                   ),
-
                 Positioned.fill(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
                           Colors.transparent,
-                          Colors.black.withOpacity(0.14),
-                          Colors.black.withOpacity(0.45),
+                          Colors.black.withValues(alpha: 0.14),
+                          Colors.black.withValues(alpha: 0.45),
                         ],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
@@ -358,7 +445,6 @@ class _MediaScreenState extends State<MediaScreen> {
                     ),
                   ),
                 ),
-
                 Positioned(
                   top: 12,
                   left: 12,
@@ -372,7 +458,7 @@ class _MediaScreenState extends State<MediaScreen> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.92),
+                          color: Colors.white.withValues(alpha: 0.92),
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Row(
@@ -417,7 +503,6 @@ class _MediaScreenState extends State<MediaScreen> {
                     ],
                   ),
                 ),
-
                 Positioned(
                   right: 14,
                   bottom: 14,
@@ -425,7 +510,7 @@ class _MediaScreenState extends State<MediaScreen> {
                     width: 54,
                     height: 54,
                     decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.92),
+                      color: Colors.red.withValues(alpha: 0.92),
                       shape: BoxShape.circle,
                       boxShadow: const [
                         BoxShadow(
@@ -564,19 +649,24 @@ class _MediaScreenState extends State<MediaScreen> {
   }
 
   Widget _buildHeaderInfo() {
+    final hasSearch = searchController.text.trim().isNotEmpty;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Row(
         children: [
-          Text(
-            '${filteredVideos.length} contenido${filteredVideos.length == 1 ? '' : 's'}',
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-              color: Colors.black87,
+          Expanded(
+            child: Text(
+              hasSearch
+                  ? '${filteredVideos.length} resultado${filteredVideos.length == 1 ? '' : 's'}'
+                  : '${filteredVideos.length} contenido${filteredVideos.length == 1 ? '' : 's'}',
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: Colors.black87,
+              ),
             ),
           ),
-          const Spacer(),
           const Text(
             'Explora y reproduce',
             style: TextStyle(
@@ -597,6 +687,7 @@ class _MediaScreenState extends State<MediaScreen> {
       body: Column(
         children: [
           _buildHeroSection(),
+          _buildSearchBox(),
           SizedBox(
             height: 48,
             child: ListView(
@@ -616,19 +707,20 @@ class _MediaScreenState extends State<MediaScreen> {
           _buildHeaderInfo(),
           Expanded(
             child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : filteredVideos.isEmpty
                 ? const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'No hay videos disponibles todavía.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+              child: CircularProgressIndicator(),
+            )
+                : hasError
+                ? NetworkErrorView(
+              message: errorMessage,
+              onRetry: _loadVideos,
+            )
+                : filteredVideos.isEmpty
+                ? Center(
+              child: Text(
+                searchController.text.trim().isNotEmpty
+                    ? 'No encontramos resultados para tu búsqueda.'
+                    : 'No hay videos disponibles todavía.',
               ),
             )
                 : RefreshIndicator(

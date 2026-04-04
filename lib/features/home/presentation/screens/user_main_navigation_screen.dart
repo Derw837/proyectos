@@ -14,7 +14,24 @@ import 'package:red_cristiana/features/profile/presentation/screens/profile_scre
 import 'package:red_cristiana/features/radios/presentation/screens/radios_screen.dart';
 
 class UserMainNavigationScreen extends StatefulWidget {
-  const UserMainNavigationScreen({super.key});
+  final int initialIndex;
+
+  final String? initialFeedChurchId;
+  final String? initialFeedChurchName;
+  final String initialFeedTab;
+
+  final String? initialEventsChurchId;
+  final String? initialEventsChurchName;
+
+  const UserMainNavigationScreen({
+    super.key,
+    this.initialIndex = 0,
+    this.initialFeedChurchId,
+    this.initialFeedChurchName,
+    this.initialFeedTab = 'all',
+    this.initialEventsChurchId,
+    this.initialEventsChurchName,
+  });
 
   @override
   State<UserMainNavigationScreen> createState() =>
@@ -22,22 +39,33 @@ class UserMainNavigationScreen extends StatefulWidget {
 }
 
 class _UserMainNavigationScreenState extends State<UserMainNavigationScreen> {
-  int currentIndex = 0;
+  late int currentIndex;
+  late List<Widget> screens;
   int unreadCount = 0;
   StreamSubscription<int>? _unreadSubscription;
-
-  final List<Widget> screens = const [
-    HomeFeedScreen(),
-    ChurchesScreen(),
-    EventsScreen(),
-    MediaScreen(),
-    RadiosScreen(),
-    LiveTvScreen(),
-  ];
 
   @override
   void initState() {
     super.initState();
+
+    currentIndex = widget.initialIndex;
+
+    screens = [
+      HomeFeedScreen(
+        initialChurchId: widget.initialFeedChurchId,
+        initialChurchName: widget.initialFeedChurchName,
+        initialTab: widget.initialFeedTab,
+      ),
+      const ChurchesScreen(),
+      EventsScreen(
+        initialChurchId: widget.initialEventsChurchId,
+        initialChurchName: widget.initialEventsChurchName,
+      ),
+      const MediaScreen(),
+      const RadiosScreen(),
+      const LiveTvScreen(),
+    ];
+
     AudioPlayerService.init();
     _loadUnreadCount();
     _listenUnreadCount();

@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:red_cristiana/features/churches/data/church_posts_service.dart';
-import 'package:red_cristiana/features/churches/data/church_profile_videos_service.dart';
 import 'package:red_cristiana/features/churches/data/church_public_service.dart';
 import 'package:red_cristiana/features/churches/data/models/church_model.dart';
-import 'package:red_cristiana/features/media/presentation/screens/app_video_player_screen.dart';
+import 'package:red_cristiana/features/home/presentation/screens/user_main_navigation_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:red_cristiana/features/churches/presentation/widgets/post_images_widget.dart';
-import 'package:red_cristiana/features/churches/presentation/screens/post_gallery_screen.dart';
-import 'package:red_cristiana/features/churches/presentation/screens/church_events_screen.dart';
 
 class ChurchDetailScreen extends StatefulWidget {
   final ChurchModel church;
@@ -24,15 +19,9 @@ class ChurchDetailScreen extends StatefulWidget {
 
 class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
   bool isLoadingSchedules = true;
-  bool isLoadingPosts = true;
   bool isLoadingStats = true;
-  bool isLoadingVideos = true;
-  bool isLoadingEvents = true;
 
   List<Map<String, dynamic>> schedules = [];
-  List<Map<String, dynamic>> posts = [];
-  List<Map<String, dynamic>> videos = [];
-  List<Map<String, dynamic>> events = [];
 
   int likesCount = 0;
   int membersCount = 0;
@@ -43,10 +32,25 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
   void initState() {
     super.initState();
     _loadSchedules();
-    _loadPosts();
     _loadStats();
-    _loadVideos();
-    _loadEvents();
+  }
+
+  int _dayOrder(String day) {
+    final normalized = day.trim().toLowerCase();
+
+    const order = {
+      'domingo': 0,
+      'lunes': 1,
+      'martes': 2,
+      'miercoles': 3,
+      'miércoles': 3,
+      'jueves': 4,
+      'viernes': 5,
+      'sabado': 6,
+      'sábado': 6,
+    };
+
+    return order[normalized] ?? 99;
   }
 
   Future<void> _loadSchedules() async {
@@ -59,72 +63,32 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
 
       if (!mounted) return;
 
+      final loadedSchedules = List<Map<String, dynamic>>.from(response);
+
+      loadedSchedules.sort((a, b) {
+        final dayA = a['day_name']?.toString() ?? '';
+        final dayB = b['day_name']?.toString() ?? '';
+
+        final orderA = _dayOrder(dayA);
+        final orderB = _dayOrder(dayB);
+
+        if (orderA != orderB) {
+          return orderA.compareTo(orderB);
+        }
+
+        final startA = a['start_time']?.toString() ?? '';
+        final startB = b['start_time']?.toString() ?? '';
+        return startA.compareTo(startB);
+      });
+
       setState(() {
-        schedules = List<Map<String, dynamic>>.from(response);
+        schedules = loadedSchedules;
         isLoadingSchedules = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         isLoadingSchedules = false;
-      });
-    }
-  }
-
-  Future<void> _loadPosts() async {
-    try {
-      final response = await ChurchPostsService.getChurchPosts(widget.church.id);
-
-      if (!mounted) return;
-      setState(() {
-        posts = response;
-        isLoadingPosts = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        isLoadingPosts = false;
-      });
-    }
-  }
-
-  Future<void> _loadVideos() async {
-    try {
-      final response =
-      await ChurchProfileVideosService.getChurchVideos(widget.church.id);
-
-      if (!mounted) return;
-      setState(() {
-        videos = response;
-        isLoadingVideos = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        isLoadingVideos = false;
-      });
-    }
-  }
-
-  Future<void> _loadEvents() async {
-    try {
-      final response = await Supabase.instance.client
-          .from('church_events')
-          .select()
-          .eq('church_id', widget.church.id)
-          .eq('status', 'published')
-          .order('event_date', ascending: true);
-
-      if (!mounted) return;
-
-      setState(() {
-        events = List<Map<String, dynamic>>.from(response);
-        isLoadingEvents = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        isLoadingEvents = false;
       });
     }
   }
@@ -153,6 +117,8 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
   Future<void> _toggleLike() async {
     try {
       await ChurchPublicService.toggleChurchLike(widget.church.id);
+
+      if (!mounted) return;
       await _loadStats();
     } catch (e) {
       if (!mounted) return;
@@ -171,17 +137,17 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
         throw Exception('Debes iniciar sesión');
       }
 
-      // buscar membresía actual
       final current = await client
           .from('church_memberships')
           .select()
           .eq('user_id', user.id)
           .maybeSingle();
 
+      if (!mounted) return;
+
       if (current != null) {
         final currentChurchId = current['church_id'].toString();
 
-        // si ya es miembro de ESTA iglesia → salir
         if (currentChurchId == widget.church.id) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Ya eres miembro de esta iglesia')),
@@ -189,84 +155,88 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
           return;
         }
 
-        // preguntar si quiere cambiar
         final confirm = await showDialog<bool>(
           context: context,
-          builder: (_) => AlertDialog(
+          builder: (dialogContext) => AlertDialog(
             title: const Text('Cambiar membresía'),
             content: const Text(
-                'Ya eres miembro de otra iglesia.\n¿Quieres cambiar a esta?'),
+              'Ya eres miembro de otra iglesia.\n¿Quieres cambiar a esta?',
+            ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
+                onPressed: () => Navigator.pop(dialogContext, false),
                 child: const Text('Cancelar'),
               ),
               ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
+                onPressed: () => Navigator.pop(dialogContext, true),
                 child: const Text('Cambiar'),
               ),
             ],
           ),
         );
 
+        if (!mounted) return;
         if (confirm != true) return;
 
-        // eliminar membresía anterior
         await client
             .from('church_memberships')
             .delete()
             .eq('user_id', user.id);
+
+        if (!mounted) return;
       }
 
-      // crear nueva membresía
       await client.from('church_memberships').insert({
         'user_id': user.id,
         'church_id': widget.church.id,
       });
 
+      if (!mounted) return;
+
       await _loadStats();
+
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ahora eres miembro de esta iglesia')),
       );
     } catch (e) {
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error de membresía: $e')),
       );
     }
   }
 
-  Future<void> _togglePostLike(String postId) async {
-    try {
-      await ChurchPostsService.togglePostLike(postId);
-      await _loadPosts();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error en Me gusta: $e')),
-      );
-    }
-  }
-
-  Future<void> _toggleVideoLike(String videoId) async {
-    try {
-      await ChurchProfileVideosService.toggleVideoLike(videoId);
-      await _loadVideos();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error en Me gusta: $e')),
-      );
-    }
-  }
-
   Future<void> _openUrl(String url) async {
-    if (url.trim().isEmpty) return;
+    var value = url.trim();
+    if (value.isEmpty) return;
 
-    final uri = Uri.parse(url);
+    if (!value.startsWith('http://') &&
+        !value.startsWith('https://') &&
+        !value.startsWith('mailto:') &&
+        !value.startsWith('tel:')) {
+      value = 'https://$value';
+    }
 
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    final uri = Uri.tryParse(value);
+
+    if (uri == null) {
       if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('El enlace de apoyo espiritual no es válido'),
+        ),
+      );
+      return;
+    }
+
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+    if (!mounted) return;
+
+    if (!ok) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No se pudo abrir el enlace')),
       );
@@ -277,6 +247,48 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
     if (phone.trim().isEmpty) return;
     final cleaned = phone.replaceAll(' ', '');
     await _openUrl('https://wa.me/$cleaned');
+  }
+
+  void _openChurchFeed() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UserMainNavigationScreen(
+          initialIndex: 0,
+          initialFeedChurchId: widget.church.id,
+          initialFeedChurchName: widget.church.churchName,
+          initialFeedTab: 'all',
+        ),
+      ),
+    );
+  }
+
+  void _openChurchEvents() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UserMainNavigationScreen(
+          initialIndex: 2,
+          initialEventsChurchId: widget.church.id,
+          initialEventsChurchName: widget.church.churchName,
+        ),
+      ),
+    );
+  }
+
+  void _openChurchLocation() {
+    final address = widget.church.address.trim();
+    if (address.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Esta iglesia no tiene dirección registrada'),
+        ),
+      );
+      return;
+    }
+
+    final encoded = Uri.encodeComponent(address);
+    _openUrl('https://www.google.com/maps/search/?api=1&query=$encoded');
   }
 
   Widget _actionButton({
@@ -355,261 +367,85 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
     );
   }
 
-  Widget _scheduleCard(Map<String, dynamic> item) {
-    final day = item['day_name']?.toString() ?? '';
-    final start = item['start_time']?.toString() ?? '';
-    final end = item['end_time']?.toString() ?? '';
-    final service = item['service_name']?.toString() ?? '';
+  Widget _buildSchedules() {
+    if (schedules.isEmpty) {
+      return const Text(
+        'No hay horarios registrados.',
+        style: TextStyle(color: Colors.black54),
+      );
+    }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F9FC),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            day,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 15.5,
-            ),
+    return Column(
+      children: schedules.map((schedule) {
+        final day = schedule['day_name']?.toString() ?? '';
+        final name = schedule['service_name']?.toString() ?? '';
+        final start = schedule['start_time']?.toString() ?? '';
+        final end = schedule['end_time']?.toString() ?? '';
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade200),
           ),
-          if (service.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(service),
-          ],
-          if (start.isNotEmpty || end.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              '$start${end.isNotEmpty ? ' - $end' : ''}',
-              style: const TextStyle(
-                color: Color(0xFF0D47A1),
-                fontWeight: FontWeight.w600,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE3F2FD),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.access_time,
+                  color: Color(0xFF0D47A1),
+                  size: 20,
+                ),
               ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _postCard(Map<String, dynamic> post) {
-    final title = post['title']?.toString() ?? '';
-    final content = post['content']?.toString() ?? '';
-    final likes = post['likes_count'] ?? 0;
-    final liked = post['liked_by_me'] ?? false;
-    final images = List<Map<String, dynamic>>.from(post['images'] ?? []);
-
-    final urls = images
-        .map((e) => e['image_url']?.toString() ?? '')
-        .where((e) => e.isNotEmpty)
-        .toList();
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x11000000),
-            blurRadius: 12,
-            offset: Offset(0, 5),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          PostImagesWidget(imageUrls: urls),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (title.isNotEmpty)
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                if (title.isNotEmpty && content.isNotEmpty)
-                  const SizedBox(height: 8),
-                if (content.isNotEmpty)
-                  Text(
-                    content,
-                    style: const TextStyle(
-                      color: Colors.black87,
-                      height: 1.45,
-                    ),
-                  ),
-                const SizedBox(height: 12),
-                Row(
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    IconButton(
-                      onPressed: () => _togglePostLike(post['id'].toString()),
-                      icon: Icon(
-                        liked ? Icons.favorite : Icons.favorite_border,
-                        color: liked ? Colors.red : Colors.black54,
+                    Text(
+                      day,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    Text('$likes Me gusta'),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _videoCard(Map<String, dynamic> video) {
-    final title = video['title']?.toString() ?? '';
-    final description = video['description']?.toString() ?? '';
-    final thumbnailUrl = video['thumbnail_url']?.toString() ?? '';
-    final likes = video['likes_count'] ?? 0;
-    final liked = video['liked_by_me'] == true;
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => AppVideoPlayerScreen(
-              title: video['title']?.toString() ?? '',
-              description: video['description']?.toString() ?? '',
-              videoUrl: video['video_url']?.toString() ?? '',
-            ),
-          ),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF7F9FC),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (thumbnailUrl.isNotEmpty)
-              Image.network(
-                thumbnailUrl,
-                width: double.infinity,
-                height: 190,
-                fit: BoxFit.cover,
-              )
-            else
-              Container(
-                width: double.infinity,
-                height: 190,
-                color: Colors.grey.shade300,
-                child: const Icon(Icons.ondemand_video, size: 60),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16.5,
-                    ),
-                  ),
-                  if (description.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      description,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => _toggleVideoLike(video['id'].toString()),
-                        icon: Icon(
-                          liked ? Icons.favorite : Icons.favorite_border,
-                          color: liked ? Colors.red : Colors.black54,
+                    if (name.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          color: Colors.black87,
                         ),
                       ),
-                      Text('$likes Me gusta'),
                     ],
-                  ),
-                ],
+                    if (start.isNotEmpty || end.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        end.isNotEmpty ? '$start - $end' : start,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF0D47A1),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _eventCard(Map<String, dynamic> event) {
-    final title = event['title']?.toString() ?? '';
-    final description = event['description']?.toString() ?? '';
-    final date = event['event_date']?.toString() ?? '';
-    final start = event['start_time']?.toString() ?? '';
-    final end = event['end_time']?.toString() ?? '';
-    final address = event['address']?.toString() ?? '';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F9FC),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
+            ],
           ),
-          if (date.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text('Fecha: $date'),
-          ],
-          if (start.isNotEmpty || end.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              'Hora: $start${end.isNotEmpty ? ' - $end' : ''}',
-              style: const TextStyle(
-                color: Color(0xFF0D47A1),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-          if (address.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text('Lugar: $address'),
-          ],
-          if (description.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              description,
-              style: const TextStyle(height: 1.4),
-            ),
-          ],
-        ],
-      ),
+        );
+      }).toList(),
     );
   }
 
@@ -639,7 +475,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
                   ? Image.network(
                 church.coverUrl!,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                errorBuilder: (context, error, stackTrace) => Container(
                   color: const Color(0xFF0D47A1),
                 ),
               )
@@ -657,7 +493,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
           ),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -687,7 +523,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
                   Text(
                     church.churchName,
                     style: const TextStyle(
-                      fontSize: 28,
+                      fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF0D1B2A),
                     ),
@@ -766,7 +602,9 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
                       Expanded(
                         child: _actionButton(
                           title: likedByMe ? 'Te gusta' : 'Me gusta',
-                          icon: likedByMe ? Icons.favorite : Icons.favorite_border,
+                          icon: likedByMe
+                              ? Icons.favorite
+                              : Icons.favorite_border,
                           onTap: _toggleLike,
                           backgroundColor:
                           likedByMe ? Colors.red : const Color(0xFF0D47A1),
@@ -842,88 +680,38 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
                       padding: EdgeInsets.all(12),
                       child: CircularProgressIndicator(),
                     )
-                        : schedules.isEmpty
-                        ? const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Text('No hay horarios publicados.'),
-                    )
-                        : Column(
-                      children: schedules.map(_scheduleCard).toList(),
-                    ),
+                        : _buildSchedules(),
                   ),
                   const SizedBox(height: 12),
                   _sectionCard(
-                    title: 'Eventos',
-                    icon: Icons.event_outlined,
-                    child: isLoadingEvents
-                        ? const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: CircularProgressIndicator(),
-                    )
-                        : events.isEmpty
-                        ? const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Text('No hay eventos publicados.'),
-                    )
-                        : Column(
+                    title: 'Explorar esta iglesia',
+                    icon: Icons.explore_outlined,
+                    child: Column(
                       children: [
-                        ...events.take(3).map(_eventCard),
-                        if (events.length > 3)
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton.icon(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ChurchEventsScreen(
-                                      churchId: widget.church.id,
-                                      churchName: widget.church.churchName,
-                                    ),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.arrow_forward),
-                              label: const Text('Ver todos los eventos'),
-                            ),
-                          ),
+                        _actionButton(
+                          title: 'Ver publicaciones y videos',
+                          icon: Icons.dynamic_feed_outlined,
+                          onTap: _openChurchFeed,
+                          backgroundColor: const Color(0xFF0D47A1),
+                          foregroundColor: Colors.white,
+                        ),
+                        const SizedBox(height: 10),
+                        _actionButton(
+                          title: 'Ver eventos',
+                          icon: Icons.event_outlined,
+                          onTap: _openChurchEvents,
+                          backgroundColor: const Color(0xFFEF6C00),
+                          foregroundColor: Colors.white,
+                        ),
+                        const SizedBox(height: 10),
+                        _actionButton(
+                          title: 'Ver ubicación',
+                          icon: Icons.location_on_outlined,
+                          onTap: _openChurchLocation,
+                          backgroundColor: const Color(0xFF455A64),
+                          foregroundColor: Colors.white,
+                        ),
                       ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _sectionCard(
-                    title: 'Publicaciones',
-                    icon: Icons.photo_library_outlined,
-                    child: isLoadingPosts
-                        ? const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: CircularProgressIndicator(),
-                    )
-                        : posts.isEmpty
-                        ? const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Text('No hay publicaciones todavía.'),
-                    )
-                        : Column(
-                      children: posts.map(_postCard).toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _sectionCard(
-                    title: 'Videos de la iglesia',
-                    icon: Icons.ondemand_video_outlined,
-                    child: isLoadingVideos
-                        ? const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: CircularProgressIndicator(),
-                    )
-                        : videos.isEmpty
-                        ? const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Text('No hay videos publicados todavía.'),
-                    )
-                        : Column(
-                      children: videos.map(_videoCard).toList(),
                     ),
                   ),
                 ],
