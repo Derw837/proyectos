@@ -102,14 +102,14 @@ class PrayerService {
         .map((targetUserId) => {
       'user_id': targetUserId,
       'title': 'Nueva petición de oración',
-      'body': '$prayerText Iglesia: $churchName',
+      'message': '$prayerText Iglesia: $churchName',
       'type': 'prayer_request',
-      'reference_id': prayerRequestId,
+      'related_id': prayerRequestId,
       'is_read': false,
     })
         .toList();
 
-    await _client.from('app_notifications').insert(rows);
+    await _client.from('user_notifications').insert(rows);
   }
 
   static Future<List<Map<String, dynamic>>> getPrayerRequests() async {

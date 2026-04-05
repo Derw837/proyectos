@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:red_cristiana/features/events/data/church_events_service.dart';
+import 'package:red_cristiana/features/churches/presentation/widgets/church_header_shell.dart';
 
 class ChurchEventsManageScreen extends StatefulWidget {
   const ChurchEventsManageScreen({super.key});
@@ -361,9 +362,10 @@ class _ChurchEventsManageScreenState extends State<ChurchEventsManageScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC),
-      appBar: AppBar(
+    return ChurchHeaderShell(
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF7F9FC),
+          appBar: AppBar(
         title: const Text('Eventos de mi iglesia'),
         centerTitle: true,
         backgroundColor: const Color(0xFFF7F9FC),
@@ -400,6 +402,7 @@ class _ChurchEventsManageScreenState extends State<ChurchEventsManageScreen> {
           },
         ),
       ),
+        ),
     );
   }
 }

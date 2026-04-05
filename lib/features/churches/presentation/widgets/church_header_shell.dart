@@ -2,36 +2,26 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:red_cristiana/core/widgets/main_header.dart';
-import 'package:red_cristiana/features/churches/presentation/screens/church_dashboard_screen.dart';
-import 'package:red_cristiana/features/churches/presentation/screens/church_members_screen.dart';
-import 'package:red_cristiana/features/churches/presentation/screens/church_profile_manage_screen.dart';
-import 'package:red_cristiana/features/home/presentation/screens/home_feed_screen.dart';
 import 'package:red_cristiana/features/notifications/data/notifications_service.dart';
 import 'package:red_cristiana/features/notifications/presentation/screens/notifications_screen.dart';
 import 'package:red_cristiana/features/profile/presentation/screens/profile_screen.dart';
 
-class ChurchMainNavigationScreen extends StatefulWidget {
-  const ChurchMainNavigationScreen({super.key});
+class ChurchHeaderShell extends StatefulWidget {
+  final Widget child;
+
+  const ChurchHeaderShell({
+    super.key,
+    required this.child,
+  });
 
   @override
-  State<ChurchMainNavigationScreen> createState() =>
-      _ChurchMainNavigationScreenState();
+  State<ChurchHeaderShell> createState() => _ChurchHeaderShellState();
 }
 
-class _ChurchMainNavigationScreenState extends State<ChurchMainNavigationScreen> {
-  int currentIndex = 0;
+class _ChurchHeaderShellState extends State<ChurchHeaderShell> {
   int unreadCount = 0;
-
   StreamSubscription<int>? _unreadSubscription;
   StreamSubscription<Map<String, dynamic>>? _latestNotificationSub;
-
-  final List<Widget> screens = const [
-    ChurchDashboardScreen(),
-    HomeFeedScreen(),
-    ChurchMembersScreen(),
-    ChurchProfileManageScreen(),
-    ProfileScreen(),
-  ];
 
   @override
   void initState() {
@@ -132,50 +122,9 @@ class _ChurchMainNavigationScreenState extends State<ChurchMainNavigationScreen>
               onStore: _openStore,
               onProfile: _openProfile,
             ),
-            Expanded(
-              child: IndexedStack(
-                index: currentIndex,
-                children: screens,
-              ),
-            ),
+            Expanded(child: widget.child),
           ],
         ),
-      ),
-      bottomNavigationBar: NavigationBar(
-        height: 72,
-        selectedIndex: currentIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            currentIndex = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Panel',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.public),
-            selectedIcon: Icon(Icons.public),
-            label: 'Feed',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.groups_outlined),
-            selectedIcon: Icon(Icons.groups),
-            label: 'Miembros',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.church_outlined),
-            selectedIcon: Icon(Icons.church),
-            label: 'Iglesia',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Cuenta',
-          ),
-        ],
       ),
     );
   }

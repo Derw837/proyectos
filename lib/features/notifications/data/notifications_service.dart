@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NotificationsService {
@@ -160,6 +161,7 @@ class NotificationsService {
     post['images'] = images;
     return post;
   }
+
   static Future<Map<String, dynamic>?> getVideoById(String videoId) async {
     final response = await _client
         .from('church_profile_videos')
@@ -183,5 +185,32 @@ class NotificationsService {
 
     if (response == null) return null;
     return Map<String, dynamic>.from(response);
+  }
+
+  static Stream<Map<String, dynamic>> latestIncomingNotificationStream() {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      return const Stream<Map<String, dynamic>>.empty();
+    }
+
+    final controller = StreamController<Map<String, dynamic>>.broadcast();
+
+    final subscription = _client
+        .from('user_notifications')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', user.id)
+        .order('created_at')
+        .listen((rows) {
+      if (rows.isEmpty) return;
+
+      final latest = rows.last;
+      controller.add(Map<String, dynamic>.from(latest));
+    });
+
+    controller.onCancel = () {
+      subscription.cancel();
+    };
+
+    return controller.stream;
   }
 }

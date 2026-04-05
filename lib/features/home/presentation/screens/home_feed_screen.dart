@@ -47,6 +47,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   final searchController = TextEditingController();
 
   StreamSubscription<String>? _refreshSubscription;
+  Timer? _silentRefreshTimer;
+
+  List<Map<String, dynamic>> pendingNewItems = [];
+  bool isCheckingNewFeedItems = false;
 
   String selectedTab = 'all';
   String selectedChurchId = '';
@@ -67,15 +71,17 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 
     _refreshSubscription = AppRefreshBus.stream.listen((event) async {
       if (event == 'feed_refresh' || event == 'general_refresh') {
-        await _loadFeed();
-        _applyFilters();
+        await _checkForNewFeedItems();
       }
     });
+
+    _startSilentFeedRefresh();
   }
 
   @override
   void dispose() {
     _refreshSubscription?.cancel();
+    _silentRefreshTimer?.cancel();
     searchController.dispose();
     scrollController.dispose();
     super.dispose();
@@ -87,6 +93,134 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     final threshold = scrollController.position.maxScrollExtent - 300;
     if (scrollController.position.pixels >= threshold) {
       _loadMoreFeed();
+    }
+  }
+
+  void _startSilentFeedRefresh() {
+    _silentRefreshTimer?.cancel();
+
+    _silentRefreshTimer = Timer.periodic(
+      const Duration(seconds: 35),
+          (_) => _checkForNewFeedItems(),
+    );
+  }
+
+  Future<void> _checkForNewFeedItems() async {
+    if (isLoading ||
+        isLoadingMore ||
+        isCheckingNewFeedItems ||
+        !mounted ||
+        allItems.isEmpty) {
+      return;
+    }
+
+    try {
+      isCheckingNewFeedItems = true;
+
+      final response = await HomeFeedService.getGeneralFeedPage(
+        offset: 0,
+        limit: pageSize,
+      );
+
+      final latestItems =
+      List<Map<String, dynamic>>.from(response['items'] ?? []);
+
+      if (latestItems.isEmpty) {
+        isCheckingNewFeedItems = false;
+        return;
+      }
+
+      final existingKeys = allItems
+          .map((item) => '${item['type']}_${item['id']}')
+          .toSet();
+
+      final newItems = latestItems.where((item) {
+        final key = '${item['type']}_${item['id']}';
+        return !existingKeys.contains(key);
+      }).toList();
+
+      if (!mounted) {
+        isCheckingNewFeedItems = false;
+        return;
+      }
+
+      if (newItems.isNotEmpty) {
+        final pendingKeys = pendingNewItems
+            .map((item) => '${item['type']}_${item['id']}')
+            .toSet();
+
+        final uniqueNewItems = newItems.where((item) {
+          final key = '${item['type']}_${item['id']}';
+          return !pendingKeys.contains(key);
+        }).toList();
+
+        if (uniqueNewItems.isNotEmpty) {
+          setState(() {
+            pendingNewItems = [...uniqueNewItems, ...pendingNewItems];
+          });
+        }
+      }
+    } catch (_) {
+      // silencioso a propósito
+    } finally {
+      isCheckingNewFeedItems = false;
+    }
+  }
+
+  void _insertPendingItemsIntoFeed() {
+    if (pendingNewItems.isEmpty) return;
+
+    final merged = [...pendingNewItems, ...allItems];
+    final unique = <String, Map<String, dynamic>>{};
+
+    for (final item in merged) {
+      final key = '${item['type']}_${item['id']}';
+      unique[key] = item;
+    }
+
+    final uniqueItems = unique.values.toList();
+
+    uniqueItems.sort((a, b) {
+      final aDate =
+          DateTime.tryParse(a['created_at']?.toString() ?? '') ??
+              DateTime(2000);
+      final bDate =
+          DateTime.tryParse(b['created_at']?.toString() ?? '') ??
+              DateTime(2000);
+      return bDate.compareTo(aDate);
+    });
+
+    final countrySet = <String>{};
+    final citySet = <String>{};
+
+    for (final item in uniqueItems) {
+      final church = item['church'] is Map<String, dynamic>
+          ? Map<String, dynamic>.from(item['church'])
+          : <String, dynamic>{};
+
+      final country = church['country']?.toString().trim() ?? '';
+      final city = church['city']?.toString().trim() ?? '';
+
+      if (country.isNotEmpty) countrySet.add(country);
+      if (city.isNotEmpty) citySet.add(city);
+    }
+
+    setState(() {
+      allItems = uniqueItems;
+      countries = countrySet.toList()..sort();
+      cities = citySet.toList()..sort();
+      currentOffset = allItems.length;
+      pendingNewItems = [];
+    });
+
+    _applyFilters();
+
+    if (scrollController.hasClients) {
+      scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOut,
+      );
     }
   }
 
@@ -135,6 +269,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         hasError = false;
         hasMore = pageHasMore;
         currentOffset = data.length;
+        pendingNewItems = [];
       });
 
       _applyFilters();
@@ -652,7 +787,6 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       );
     }
   }
-
 
   Future<void> _requestMyChurchPrayer(String prayerRequestId) async {
     final index = allItems.indexWhere(
@@ -1337,7 +1471,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.church, color: Color(0xFF0D47A1)),
+                    const Icon(
+                      Icons.church,
+                      color: Color(0xFF0D47A1),
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -1376,6 +1513,49 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
               ),
             ),
           ),
+          if (pendingNewItems.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: _insertPendingItemsIntoFeed,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0D47A1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.fiber_new,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          pendingNewItems.length == 1
+                              ? 'Hay 1 publicación nueva'
+                              : 'Hay ${pendingNewItems.length} publicaciones nuevas',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.arrow_upward,
+                        color: Colors.white,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           SizedBox(
             height: 48,
             child: ListView(

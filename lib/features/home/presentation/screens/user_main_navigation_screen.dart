@@ -43,6 +43,7 @@ class _UserMainNavigationScreenState extends State<UserMainNavigationScreen> {
   late List<Widget> screens;
   int unreadCount = 0;
   StreamSubscription<int>? _unreadSubscription;
+  StreamSubscription<Map<String, dynamic>>? _latestNotificationSub;
 
   @override
   void initState() {
@@ -69,11 +70,13 @@ class _UserMainNavigationScreenState extends State<UserMainNavigationScreen> {
     AudioPlayerService.init();
     _loadUnreadCount();
     _listenUnreadCount();
+    _listenIncomingNotifications();
   }
 
   @override
   void dispose() {
     _unreadSubscription?.cancel();
+    _latestNotificationSub?.cancel();
     super.dispose();
   }
 
@@ -96,6 +99,24 @@ class _UserMainNavigationScreenState extends State<UserMainNavigationScreen> {
         });
       },
     );
+  }
+
+  void _listenIncomingNotifications() {
+    _latestNotificationSub =
+        NotificationsService.latestIncomingNotificationStream().listen((item) {
+          if (!mounted) return;
+
+          final title = item['title']?.toString() ?? 'Nueva notificación';
+          final message = item['message']?.toString() ?? '';
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$title\n$message'),
+              duration: const Duration(seconds: 4),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        });
   }
 
   Future<void> _openNotifications() async {

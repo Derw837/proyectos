@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:red_cristiana/features/churches/data/church_schedule_service.dart';
+import 'package:red_cristiana/features/churches/presentation/widgets/church_header_shell.dart';
 
 class ChurchSchedulesManageScreen extends StatefulWidget {
   const ChurchSchedulesManageScreen({super.key});
@@ -301,9 +302,10 @@ class _ChurchSchedulesManageScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC),
-      appBar: AppBar(
+    return ChurchHeaderShell(
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF7F9FC),
+          appBar: AppBar(
         title: const Text('Horarios de mi iglesia'),
         centerTitle: true,
         backgroundColor: const Color(0xFFF7F9FC),
@@ -327,6 +329,7 @@ class _ChurchSchedulesManageScreenState
               _scheduleCard(schedules[index]),
         ),
       ),
+        ),
     );
   }
 }

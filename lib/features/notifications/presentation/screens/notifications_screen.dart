@@ -53,7 +53,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       await NotificationsService.markAsRead(id);
     }
 
-    if (relatedId.isEmpty) {
+    if (relatedId.isEmpty && type != 'prayer_request') {
       await _loadNotifications();
       return;
     }
@@ -91,15 +91,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
           );
         }
-      }
-      else if (type == 'video') {
+      } else if (type == 'video') {
         final video = await NotificationsService.getVideoById(relatedId);
 
         if (video == null) {
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('El video no está disponible')),
           );
         } else {
+          if (!mounted) return;
           await Navigator.push(
             context,
             MaterialPageRoute(
@@ -107,6 +108,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
           );
         }
+      } else if (type == 'prayer_request') {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('La petición de oración fue marcada como leída'),
+          ),
+        );
       }
 
       await _loadNotifications();
@@ -124,7 +132,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Todas las notificaciones se marcaron como leídas')),
+      const SnackBar(
+        content: Text('Todas las notificaciones se marcaron como leídas'),
+      ),
     );
   }
 
@@ -134,6 +144,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return Icons.event_outlined;
       case 'post':
         return Icons.photo_library_outlined;
+      case 'video':
+        return Icons.ondemand_video_outlined;
+      case 'prayer_request':
+        return Icons.volunteer_activism_outlined;
+      case 'church_announcement':
+        return Icons.campaign_outlined;
       default:
         return Icons.notifications_none;
     }
@@ -145,6 +161,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return Colors.deepOrange;
       case 'post':
         return const Color(0xFF0D47A1);
+      case 'video':
+        return Colors.purple;
+      case 'prayer_request':
+        return const Color(0xFF2E7D32);
+      case 'church_announcement':
+        return const Color(0xFF6A1B9A);
       default:
         return Colors.grey;
     }
@@ -181,7 +203,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CircleAvatar(
-              backgroundColor: _colorForType(type).withOpacity(0.12),
+              backgroundColor: _colorForType(type).withValues(alpha: 0.12),
               child: Icon(
                 _iconForType(type),
                 color: _colorForType(type),

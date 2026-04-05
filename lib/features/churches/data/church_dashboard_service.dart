@@ -44,38 +44,58 @@ class ChurchDashboardService {
   }
 
   static Future<List<Map<String, dynamic>>> getMyMembers() async {
-    final church = await getMyChurch();
-    if (church == null) return [];
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return [];
 
-    final churchId = church['id'].toString();
+    final church = await Supabase.instance.client
+        .from('churches')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-    final memberships = await _client
+    final churchId = church?['id']?.toString();
+    if (churchId == null || churchId.isEmpty) return [];
+
+    final memberships = await Supabase.instance.client
         .from('church_memberships')
-        .select('id, user_id, created_at')
+        .select('user_id, created_at')
         .eq('church_id', churchId)
         .order('created_at', ascending: false);
 
-    final members = <Map<String, dynamic>>[];
+    final membershipRows = List<Map<String, dynamic>>.from(memberships);
 
-    for (final item in memberships) {
-      final membership = Map<String, dynamic>.from(item);
-      final userId = membership['user_id']?.toString();
+    if (membershipRows.isEmpty) return [];
 
-      if (userId == null || userId.isEmpty) continue;
+    final userIds = membershipRows
+        .map((e) => e['user_id']?.toString() ?? '')
+        .where((e) => e.isNotEmpty)
+        .toList();
 
-      final profile = await _client
-          .from('profiles')
-          .select('id, full_name, country, city, sector')
-          .eq('id', userId)
-          .maybeSingle();
+    final profiles = await Supabase.instance.client
+        .from('profiles')
+        .select('id, full_name, country, city, sector')
+        .inFilter('id', userIds);
 
-      members.add({
+    final profilesMap = <String, Map<String, dynamic>>{};
+    for (final raw in profiles) {
+      final profile = Map<String, dynamic>.from(raw);
+      final id = profile['id']?.toString() ?? '';
+      if (id.isNotEmpty) {
+        profilesMap[id] = profile;
+      }
+    }
+
+    final result = <Map<String, dynamic>>[];
+
+    for (final membership in membershipRows) {
+      final memberUserId = membership['user_id']?.toString() ?? '';
+      result.add({
+        'profile': profilesMap[memberUserId],
         'membership': membership,
-        'profile': profile,
       });
     }
 
-    return members;
+    return result;
   }
 
   static Future<void> updateSpiritualHelp({

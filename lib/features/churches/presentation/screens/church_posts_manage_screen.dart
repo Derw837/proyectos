@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:red_cristiana/features/churches/data/church_posts_service.dart';
 import 'package:red_cristiana/features/churches/presentation/screens/post_gallery_screen.dart';
 import 'package:red_cristiana/features/churches/presentation/widgets/post_images_widget.dart';
+import 'package:red_cristiana/features/churches/presentation/widgets/church_header_shell.dart';
 
 class ChurchPostsManageScreen extends StatefulWidget {
   const ChurchPostsManageScreen({super.key});
@@ -347,9 +348,10 @@ class _ChurchPostsManageScreenState extends State<ChurchPostsManageScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC),
-      appBar: AppBar(
+    return ChurchHeaderShell(
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF7F9FC),
+          appBar: AppBar(
         title: const Text('Publicaciones de mi iglesia'),
         centerTitle: true,
         backgroundColor: const Color(0xFFF7F9FC),
@@ -387,6 +389,7 @@ class _ChurchPostsManageScreenState extends State<ChurchPostsManageScreen> {
           },
         ),
       ),
+        ),
     );
   }
 }

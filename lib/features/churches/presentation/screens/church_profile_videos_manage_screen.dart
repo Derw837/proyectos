@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:red_cristiana/features/churches/data/church_profile_videos_service.dart';
 import 'package:red_cristiana/features/media/presentation/screens/app_video_player_screen.dart';
+import 'package:red_cristiana/features/churches/presentation/widgets/church_header_shell.dart';
 
 class ChurchProfileVideosManageScreen extends StatefulWidget {
   const ChurchProfileVideosManageScreen({super.key});
@@ -299,9 +300,10 @@ class _ChurchProfileVideosManageScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC),
-      appBar: AppBar(
+    return ChurchHeaderShell(
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF7F9FC),
+          appBar: AppBar(
         title: const Text('Videos de mi iglesia'),
         centerTitle: true,
         backgroundColor: const Color(0xFFF7F9FC),
@@ -324,6 +326,7 @@ class _ChurchProfileVideosManageScreenState
           itemBuilder: (context, index) => _videoCard(videos[index]),
         ),
       ),
+        ),
     );
   }
 }

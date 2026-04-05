@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:red_cristiana/features/churches/data/church_dashboard_service.dart';
+import 'package:red_cristiana/features/churches/presentation/widgets/church_header_shell.dart';
 
 class ChurchSpiritualHelpScreen extends StatefulWidget {
   const ChurchSpiritualHelpScreen({super.key});
@@ -120,9 +121,10 @@ class _ChurchSpiritualHelpScreenState extends State<ChurchSpiritualHelpScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC),
-      appBar: AppBar(
+    return ChurchHeaderShell(
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF7F9FC),
+          appBar: AppBar(
         title: const Text('Apoyo espiritual'),
         centerTitle: true,
         backgroundColor: const Color(0xFFF7F9FC),
@@ -192,6 +194,7 @@ class _ChurchSpiritualHelpScreenState extends State<ChurchSpiritualHelpScreen> {
           ),
         ),
       ),
+        ),
     );
   }
 }
