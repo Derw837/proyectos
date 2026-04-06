@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:red_cristiana/core/widgets/network_error_view.dart';
 import 'package:red_cristiana/features/churches/data/church_service.dart';
 import 'package:red_cristiana/features/churches/data/models/church_model.dart';
 import 'package:red_cristiana/features/churches/presentation/screens/church_detail_screen.dart';
-import 'package:red_cristiana/core/widgets/network_error_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ChurchesScreen extends StatefulWidget {
@@ -13,6 +13,14 @@ class ChurchesScreen extends StatefulWidget {
 }
 
 class _ChurchesScreenState extends State<ChurchesScreen> {
+  static const Color _primary = Color(0xFF0D47A1);
+  static const Color _primaryLight = Color(0xFF1565C0);
+  static const Color _surface = Color(0xFFF4F7FB);
+  static const Color _card = Colors.white;
+  static const Color _textDark = Color(0xFF152033);
+  static const Color _textSoft = Color(0xFF6B7280);
+  static const Color _border = Color(0xFFE6EDF6);
+
   final searchController = TextEditingController();
 
   bool isLoading = true;
@@ -173,11 +181,8 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFFF7F9FC),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
-      ),
-      builder: (context) {
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             Widget dropdownFilter({
@@ -192,19 +197,38 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
                 isExpanded: true,
                 decoration: InputDecoration(
                   labelText: label,
-                  prefixIcon: Icon(icon),
+                  labelStyle: const TextStyle(
+                    color: _textSoft,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  prefixIcon: Icon(icon, color: _primary),
                   filled: true,
                   fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: const BorderSide(color: _border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: const BorderSide(color: _primary, width: 1.2),
+                  ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: const BorderSide(color: _border),
                   ),
                 ),
                 items: items
                     .map(
                       (item) => DropdownMenuItem<String>(
                     value: item,
-                    child: Text(item, overflow: TextOverflow.ellipsis),
+                    child: Text(
+                      item,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 )
                     .toList(),
@@ -212,149 +236,205 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
               );
             }
 
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 14,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            return Container(
+              decoration: const BoxDecoration(
+                color: _surface,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
               ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade400,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    top: 12,
+                    bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20,
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.search, color: Color(0xFF0D47A1)),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text(
-                            'Buscar iglesias',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                        Container(
+                          width: 52,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFCAD5E5),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [_primary, _primaryLight],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Buscar iglesias',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              SizedBox(height: 6),
+                              Text(
+                                'Busca por nombre, pastor o ubicación y aplica filtros para encontrar iglesias más rápido.',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 13.2,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: tempSearchController,
+                          decoration: InputDecoration(
+                            hintText: 'Nombre, pastor, ciudad...',
+                            hintStyle: const TextStyle(
+                              color: _textSoft,
+                            ),
+                            prefixIcon: const Icon(Icons.search, color: _primary),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 16,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: const BorderSide(color: _border),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide:
+                              const BorderSide(color: _primary, width: 1.2),
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: const BorderSide(color: _border),
                             ),
                           ),
                         ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.keyboard_arrow_down),
+                        const SizedBox(height: 12),
+                        dropdownFilter(
+                          label: 'País',
+                          value: tempCountry,
+                          items: countries,
+                          icon: Icons.public,
+                          onChanged: (value) {
+                            setSheetState(() {
+                              tempCountry = value ?? '';
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        dropdownFilter(
+                          label: 'Ciudad',
+                          value: tempCity,
+                          items: cities,
+                          icon: Icons.location_city,
+                          onChanged: (value) {
+                            setSheetState(() {
+                              tempCity = value ?? '';
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        dropdownFilter(
+                          label: 'Sector',
+                          value: tempSector,
+                          items: sectors,
+                          icon: Icons.map_outlined,
+                          onChanged: (value) {
+                            setSheetState(() {
+                              tempSector = value ?? '';
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 18),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  tempSearchController.clear();
+                                  setSheetState(() {
+                                    tempCountry = '';
+                                    tempCity = '';
+                                    tempSector = '';
+                                  });
+                                },
+                                icon: const Icon(Icons.clear_all),
+                                label: const Text(
+                                  'Limpiar',
+                                  style: TextStyle(fontWeight: FontWeight.w800),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: _primary,
+                                  side: const BorderSide(color: _border),
+                                  minimumSize: const Size.fromHeight(50),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  final newSearch = tempSearchController.text.trim();
+                                  final newCountry = tempCountry;
+                                  final newCity = tempCity;
+                                  final newSector = tempSector;
+
+                                  Navigator.pop(sheetContext);
+
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (!mounted) return;
+
+                                    searchController.text = newSearch;
+
+                                    setState(() {
+                                      selectedCountry = newCountry;
+                                      selectedCity = newCity;
+                                      selectedSector = newSector;
+                                    });
+
+                                    _applyFilters();
+                                  });
+                                },
+                                icon: const Icon(Icons.check),
+                                label: const Text(
+                                  'Aplicar',
+                                  style: TextStyle(fontWeight: FontWeight.w800),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _primary,
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size.fromHeight(50),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: tempSearchController,
-                      decoration: InputDecoration(
-                        hintText: 'Nombre, pastor, ciudad...',
-                        prefixIcon: const Icon(Icons.search),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    dropdownFilter(
-                      label: 'País',
-                      value: tempCountry,
-                      items: countries,
-                      icon: Icons.public,
-                      onChanged: (value) {
-                        setSheetState(() {
-                          tempCountry = value ?? '';
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    dropdownFilter(
-                      label: 'Ciudad',
-                      value: tempCity,
-                      items: cities,
-                      icon: Icons.location_city,
-                      onChanged: (value) {
-                        setSheetState(() {
-                          tempCity = value ?? '';
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    dropdownFilter(
-                      label: 'Sector',
-                      value: tempSector,
-                      items: sectors,
-                      icon: Icons.map_outlined,
-                      onChanged: (value) {
-                        setSheetState(() {
-                          tempSector = value ?? '';
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              tempSearchController.clear();
-                              setSheetState(() {
-                                tempCountry = '';
-                                tempCity = '';
-                                tempSector = '';
-                              });
-                            },
-                            icon: const Icon(Icons.clear_all),
-                            label: const Text('Limpiar'),
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size.fromHeight(50),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              searchController.text =
-                                  tempSearchController.text.trim();
-
-                              setState(() {
-                                selectedCountry = tempCountry;
-                                selectedCity = tempCity;
-                                selectedSector = tempSector;
-                              });
-
-                              _applyFilters();
-                              Navigator.pop(context);
-                            },
-                            icon: const Icon(Icons.check),
-                            label: const Text('Aplicar'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0D47A1),
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size.fromHeight(50),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
               ),
             );
@@ -362,32 +442,54 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
         );
       },
     );
+
+    tempSearchController.dispose();
   }
 
-  Widget _miniHeader() {
+  Widget _heroCard() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+      margin: const EdgeInsets.fromLTRB(16, 2, 16, 10),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [
-            Color(0xFF0D47A1),
-            Color(0xFF1565C0),
-          ],
+          colors: [_primary, _primaryLight],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x220D47A1),
+            blurRadius: 14,
+            offset: Offset(0, 5),
+          ),
+        ],
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.church, color: Colors.white, size: 20),
-          SizedBox(width: 10),
-          Expanded(
+          const Expanded(
             child: Text(
-              'Iglesias cristianas',
+              'Iglesias',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 16.5,
-                fontWeight: FontWeight.bold,
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                height: 1.1,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '${allChurches.length} total',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12.2,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -396,44 +498,135 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
     );
   }
 
-  Widget _searchChip() {
+  Widget _heroChip({
+    required IconData icon,
+    required String text,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12.3,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionBar() {
     final hasFilters = searchController.text.trim().isNotEmpty ||
         selectedCountry.isNotEmpty ||
         selectedCity.isNotEmpty ||
         selectedSector.isNotEmpty;
 
     return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: ActionChip(
-        onPressed: _openSearchSheet,
-        avatar: Icon(
-          hasFilters ? Icons.tune : Icons.search,
-          size: 18,
-        ),
-        label: Text(hasFilters ? 'Buscar activo' : 'Buscar'),
-      ),
-    );
-  }
-
-  Widget _nearMeChip() {
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: ActionChip(
-        onPressed: _toggleNearMe,
-        avatar: Icon(
-          nearMeOnly ? Icons.list_alt : Icons.near_me,
-          size: 18,
-          color: nearMeOnly ? Colors.white : null,
-        ),
-        label: Text(
-          nearMeOnly ? 'Ver todas las iglesias' : 'Cerca de ti',
-          style: TextStyle(
-            color: nearMeOnly ? Colors.white : null,
-            fontWeight: FontWeight.w600,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _openSearchSheet,
+              icon: Icon(
+                hasFilters ? Icons.tune : Icons.search,
+                color: _primary,
+              ),
+              label: Text(
+                hasFilters ? 'Editar búsqueda' : 'Buscar y filtrar',
+                style: const TextStyle(
+                  color: _primary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: Colors.white,
+                side: const BorderSide(color: _border),
+                minimumSize: const Size.fromHeight(50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+            ),
           ),
-        ),
-        backgroundColor:
-        nearMeOnly ? const Color(0xFF0D47A1) : null,
+          const SizedBox(width: 10),
+          InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: _toggleNearMe,
+            child: Container(
+              height: 50,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: nearMeOnly ? _primary : Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: nearMeOnly ? _primary : _border,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    nearMeOnly ? Icons.list_alt : Icons.near_me_outlined,
+                    size: 18,
+                    color: nearMeOnly ? Colors.white : _primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    nearMeOnly ? 'Todas' : 'Cerca',
+                    style: TextStyle(
+                      color: nearMeOnly ? Colors.white : _primary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (hasFilters || nearMeOnly) ...[
+            const SizedBox(width: 10),
+            InkWell(
+              borderRadius: BorderRadius.circular(18),
+              onTap: _clearFilters,
+              child: Container(
+                height: 50,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: _border),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.clear_all,
+                      size: 18,
+                      color: _primary,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Limpiar',
+                      style: TextStyle(
+                        color: _primary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -457,13 +650,14 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: _card,
           borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: _border),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x11000000),
-              blurRadius: 14,
-              offset: Offset(0, 5),
+              color: Color(0x0A000000),
+              blurRadius: 10,
+              offset: Offset(0, 4),
             ),
           ],
         ),
@@ -474,37 +668,12 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
               Image.network(
                 church.coverUrl!,
                 width: double.infinity,
-                height: 140,
+                height: 150,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  width: double.infinity,
-                  height: 140,
-                  color: const Color(0xFFEAF4FF),
-                  child: const Icon(
-                    Icons.image_not_supported_outlined,
-                    color: Color(0xFF0D47A1),
-                    size: 40,
-                  ),
-                ),
+                errorBuilder: (context, error, stackTrace) => _coverPlaceholder(),
               )
             else
-              Container(
-                width: double.infinity,
-                height: 95,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color(0xFF0D47A1),
-                      Color(0xFF1565C0),
-                    ],
-                  ),
-                ),
-                child: const Icon(
-                  Icons.church,
-                  color: Colors.white,
-                  size: 40,
-                ),
-              ),
+              _coverPlaceholder(),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -526,7 +695,7 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
                     child: (church.logoUrl == null || church.logoUrl!.isEmpty)
                         ? const Icon(
                       Icons.church,
-                      color: Color(0xFF0D47A1),
+                      color: _primary,
                       size: 32,
                     )
                         : null,
@@ -539,9 +708,10 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
                         Text(
                           church.churchName,
                           style: const TextStyle(
-                            fontSize: 17.5,
-                            fontWeight: FontWeight.bold,
-                            height: 1.3,
+                            color: _textDark,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            height: 1.25,
                           ),
                         ),
                         if (church.pastorName.isNotEmpty) ...[
@@ -551,24 +721,38 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: Color(0xFF0D47A1),
-                              fontWeight: FontWeight.w600,
+                              color: _primary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13.2,
                             ),
                           ),
                         ],
                         if (location.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            location,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.black54,
-                            ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on_outlined,
+                                size: 15,
+                                color: _textSoft,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  location,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: _textSoft,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                         if (church.sector.isNotEmpty) ...[
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 8),
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
@@ -585,9 +769,9 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
                                 child: Text(
                                   church.sector,
                                   style: const TextStyle(
-                                    color: Color(0xFF0D47A1),
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.bold,
+                                    color: _primary,
+                                    fontSize: 12.2,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
                               ),
@@ -602,18 +786,44 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               height: 1.4,
-                              color: Colors.black87,
+                              color: _textSoft,
+                              fontSize: 13.2,
                             ),
                           ),
                         ],
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 11,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF6F8FC),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: _border),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.arrow_forward_outlined,
+                                size: 18,
+                                color: _primary,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Ver iglesia',
+                                style: TextStyle(
+                                  color: _primary,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12.8,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 16,
-                    color: Colors.black45,
                   ),
                 ],
               ),
@@ -624,10 +834,116 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
     );
   }
 
+  Widget _coverPlaceholder() {
+    return Container(
+      width: double.infinity,
+      height: 120,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_primary, _primaryLight],
+        ),
+      ),
+      child: const Icon(
+        Icons.church,
+        color: Colors.white,
+        size: 42,
+      ),
+    );
+  }
+
+  Widget _emptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 92,
+              height: 92,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAF2FF),
+                borderRadius: BorderRadius.circular(28),
+              ),
+              child: const Icon(
+                Icons.search_off_outlined,
+                size: 40,
+                color: _primary,
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'No se encontraron iglesias',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: _textDark,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Prueba otra búsqueda o cambia los filtros para ver más resultados.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: _textSoft,
+                fontSize: 13.5,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: _clearFilters,
+              icon: const Icon(Icons.restart_alt),
+              label: const Text(
+                'Limpiar filtros',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _primary,
+                side: const BorderSide(color: _border),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _content() {
+    return Column(
+      children: [
+        _heroCard(),
+        _actionBar(),
+        Expanded(
+          child: filteredChurches.isEmpty
+              ? _emptyState()
+              : RefreshIndicator(
+            onRefresh: _loadData,
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              itemCount: filteredChurches.length,
+              itemBuilder: (context, index) {
+                return _churchCard(filteredChurches[index]);
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC),
+      backgroundColor: _surface,
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : hasError
@@ -635,41 +951,8 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
         message: errorMessage,
         onRetry: _loadData,
       )
-          : Column(
-        children: [
-          _miniHeader(),
-          SizedBox(
-            height: 48,
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              children: [
-                _searchChip(),
-                _nearMeChip(),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: filteredChurches.isEmpty
-                ? const Center(
-              child: Text(
-                'No se encontraron iglesias con esos filtros.',
-                textAlign: TextAlign.center,
-              ),
-            )
-                : RefreshIndicator(
-              onRefresh: _loadData,
-              child: ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                itemCount: filteredChurches.length,
-                itemBuilder: (context, index) {
-                  return _churchCard(filteredChurches[index]);
-                },
-              ),
-            ),
-          ),
-        ],
+          : SafeArea(
+        child: _content(),
       ),
     );
   }

@@ -20,6 +20,14 @@ class ChurchProfileManageScreen extends StatefulWidget {
 
 class _ChurchProfileManageScreenState
     extends State<ChurchProfileManageScreen> {
+  static const Color _primary = Color(0xFF0D47A1);
+  static const Color _primaryLight = Color(0xFF1565C0);
+  static const Color _surface = Color(0xFFF4F7FB);
+  static const Color _card = Colors.white;
+  static const Color _textDark = Color(0xFF152033);
+  static const Color _textSoft = Color(0xFF6B7280);
+  static const Color _border = Color(0xFFE6EDF6);
+
   final _formKey = GlobalKey<FormState>();
 
   final churchNameController = TextEditingController();
@@ -304,56 +312,67 @@ class _ChurchProfileManageScreenState
     return null;
   }
 
+  String _safeText(String value, String fallback) {
+    return value.trim().isEmpty ? fallback : value.trim();
+  }
+
+  String _getInitials(String text) {
+    final parts = text
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((e) => e.trim().isNotEmpty)
+        .toList();
+
+    if (parts.isEmpty) return 'IG';
+    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+
+    return (parts.first.substring(0, 1) + parts[1].substring(0, 1))
+        .toUpperCase();
+  }
+
   InputDecoration _decoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
       labelStyle: const TextStyle(
+        color: _textSoft,
         fontWeight: FontWeight.w600,
-        color: Color(0xFF5F6B7A),
       ),
       prefixIcon: Icon(
         icon,
-        color: const Color(0xFF0D47A1),
-        size: 22,
+        color: _primary,
+        size: 21,
       ),
       filled: true,
-      fillColor: const Color(0xFFF8FAFD),
+      fillColor: const Color(0xFFF9FBFE),
       contentPadding: const EdgeInsets.symmetric(
         horizontal: 16,
-        vertical: 18,
+        vertical: 16,
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(
-          color: Colors.grey.withValues(alpha: 0.18),
-        ),
+        borderSide: const BorderSide(color: _border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: const BorderSide(
-          color: Color(0xFF0D47A1),
+          color: _primary,
           width: 1.4,
         ),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(
-          color: Colors.red,
-          width: 1.1,
-        ),
+        borderSide: const BorderSide(color: Colors.red),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: const BorderSide(
           color: Colors.red,
-          width: 1.3,
+          width: 1.2,
         ),
       ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(
-          color: Colors.grey.withValues(alpha: 0.18),
-        ),
+        borderSide: const BorderSide(color: _border),
       ),
     );
   }
@@ -363,22 +382,30 @@ class _ChurchProfileManageScreenState
     required String text,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.only(top: 9),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            size: 17,
-            color: const Color(0xFF0D47A1),
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF2FF),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              size: 15,
+              color: _primary,
+            ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               text,
               style: const TextStyle(
-                fontSize: 13.5,
-                color: Colors.black87,
+                fontSize: 13,
+                color: _textDark,
                 height: 1.35,
               ),
             ),
@@ -388,7 +415,35 @@ class _ChurchProfileManageScreenState
     );
   }
 
-  Widget _editableSectionCard({
+  Widget _summaryChip({
+    required IconData icon,
+    required String text,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionCard({
     required String title,
     required String subtitle,
     required IconData icon,
@@ -397,29 +452,23 @@ class _ChurchProfileManageScreenState
     required List<Widget> fields,
     required List<Widget> previewItems,
   }) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeInOut,
-      width: double.infinity,
+    return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _card,
         borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isEditing ? _primary.withValues(alpha: 0.18) : _border,
+        ),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x10000000),
-            blurRadius: 12,
+            color: Color(0x0B000000),
+            blurRadius: 14,
             offset: Offset(0, 4),
           ),
         ],
-        border: Border.all(
-          color: isEditing
-              ? const Color(0xFF0D47A1).withValues(alpha: 0.18)
-              : Colors.grey.withValues(alpha: 0.08),
-        ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -427,14 +476,10 @@ class _ChurchProfileManageScreenState
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEAF4FF),
-                  borderRadius: BorderRadius.circular(14),
+                  color: const Color(0xFFEAF2FF),
+                  borderRadius: BorderRadius.circular(15),
                 ),
-                child: Icon(
-                  icon,
-                  color: const Color(0xFF0D47A1),
-                  size: 24,
-                ),
+                child: Icon(icon, color: _primary, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -444,139 +489,503 @@ class _ChurchProfileManageScreenState
                     Text(
                       title,
                       style: const TextStyle(
-                        fontSize: 16.5,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0D1B2A),
+                        color: _textDark,
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       subtitle,
                       style: const TextStyle(
-                        fontSize: 13,
-                        color: Colors.black54,
+                        color: _textSoft,
+                        fontSize: 12.5,
+                        height: 1.3,
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               TextButton.icon(
                 onPressed: onToggle,
                 icon: Icon(
                   isEditing
                       ? Icons.visibility_off_outlined
                       : Icons.edit_outlined,
+                  size: 18,
                 ),
                 label: Text(isEditing ? 'Ocultar' : 'Editar'),
                 style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF0D47A1),
+                  foregroundColor: _primary,
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12.5,
+                  ),
                 ),
               ),
             ],
           ),
           if (!isEditing) ...[
-            const SizedBox(height: 8),
-            ...previewItems,
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: previewItems,
+              ),
+            ),
           ],
           AnimatedCrossFade(
             firstChild: const SizedBox.shrink(),
             secondChild: Padding(
               padding: const EdgeInsets.only(top: 16),
-              child: Column(
-                children: fields,
-              ),
+              child: Column(children: fields),
             ),
             crossFadeState: isEditing
                 ? CrossFadeState.showSecond
                 : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 250),
+            duration: const Duration(milliseconds: 220),
           ),
         ],
       ),
     );
   }
 
-  Widget _imageBox({
-    required String title,
-    required VoidCallback onTap,
+  Widget _buildImage({
     Uint8List? memoryBytes,
     XFile? pickedFile,
     String? networkUrl,
-    double height = 150,
+    IconData fallbackIcon = Icons.image_outlined,
   }) {
-    Widget child;
-
     if (memoryBytes != null) {
-      child = ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: Image.memory(
-          memoryBytes,
-          width: double.infinity,
-          height: height,
-          fit: BoxFit.cover,
-        ),
+      return Image.memory(
+        memoryBytes,
+        width: double.infinity,
+        height: double.infinity,
+        fit: BoxFit.cover,
       );
-    } else if (!kIsWeb && pickedFile != null) {
-      child = ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: Image.file(
-          File(pickedFile.path),
-          width: double.infinity,
-          height: height,
-          fit: BoxFit.cover,
-        ),
-      );
-    } else if (networkUrl != null && networkUrl.isNotEmpty) {
-      child = ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: Image.network(
-          networkUrl,
-          width: double.infinity,
-          height: height,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _emptyImagePlaceholder(title, height),
-        ),
-      );
-    } else {
-      child = _emptyImagePlaceholder(title, height);
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 15,
-          ),
+    if (!kIsWeb && pickedFile != null) {
+      return Image.file(
+        File(pickedFile.path),
+        width: double.infinity,
+        height: double.infinity,
+        fit: BoxFit.cover,
+      );
+    }
+
+    if (networkUrl != null && networkUrl.isNotEmpty) {
+      return Image.network(
+        networkUrl,
+        width: double.infinity,
+        height: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) {
+          return _emptyImageContent(fallbackIcon);
+        },
+      );
+    }
+
+    return _emptyImageContent(fallbackIcon);
+  }
+
+  Widget _emptyImageContent(IconData icon) {
+    return Container(
+      color: const Color(0xFFF3F6FB),
+      child: Center(
+        child: Icon(
+          icon,
+          size: 34,
+          color: const Color(0xFF89A0C4),
         ),
-        const SizedBox(height: 10),
-        InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: onTap,
-          child: child,
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _emptyImagePlaceholder(String title, double height) {
-    return Container(
-      width: double.infinity,
-      height: height,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.grey.shade300),
+  Widget _imageActionButton({
+    required String text,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        icon: Icon(icon, size: 18),
+        label: Text(
+          text,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: _primary,
+          side: const BorderSide(color: _border),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 13),
+        ),
       ),
-      child: Center(
+    );
+  }
+
+  Widget _headerCard() {
+    final displayChurchName = churchNameController.text.trim().isEmpty
+        ? 'Mi iglesia'
+        : churchNameController.text.trim();
+
+    final displayLocation = [
+      if (cityController.text.trim().isNotEmpty) cityController.text.trim(),
+      if (countryController.text.trim().isNotEmpty) countryController.text.trim(),
+    ].join(', ');
+
+    return Container(
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x10000000),
+            blurRadius: 18,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 168,
+                  child: InkWell(
+                    onTap: _pickCover,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _buildImage(
+                          memoryBytes: selectedCoverBytes,
+                          pickedFile: selectedCoverFile,
+                          networkUrl: coverUrl,
+                          fallbackIcon: Icons.landscape_outlined,
+                        ),
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.black.withValues(alpha: 0.05),
+                                Colors.black.withValues(alpha: 0.38),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: 12,
+                          top: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 7,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.35),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.image_outlined,
+                                  size: 15,
+                                  color: Colors.white,
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Cambiar portada',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 16,
+                bottom: -38,
+                child: InkWell(
+                  onTap: _pickLogo,
+                  borderRadius: BorderRadius.circular(22),
+                  child: Container(
+                    width: 86,
+                    height: 86,
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x16000000),
+                          blurRadius: 10,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(19),
+                      child: selectedLogoBytes == null &&
+                          selectedLogoFile == null &&
+                          logoUrl.isEmpty
+                          ? Container(
+                        color: const Color(0xFFEAF2FF),
+                        child: Center(
+                          child: Text(
+                            _getInitials(displayChurchName),
+                            style: const TextStyle(
+                              color: _primary,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 24,
+                            ),
+                          ),
+                        ),
+                      )
+                          : _buildImage(
+                        memoryBytes: selectedLogoBytes,
+                        pickedFile: selectedLogoFile,
+                        networkUrl: logoUrl,
+                        fallbackIcon: Icons.church_outlined,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 50, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        displayChurchName,
+                        style: const TextStyle(
+                          color: _textDark,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          height: 1.15,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEAF7EE),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.verified_outlined,
+                            size: 15,
+                            color: Color(0xFF2E7D32),
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'Perfil activo',
+                            style: TextStyle(
+                              color: Color(0xFF2E7D32),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (displayLocation.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    displayLocation,
+                    style: const TextStyle(
+                      color: _textSoft,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [_primary, _primaryLight],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Perfil institucional',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      const Text(
+                        'Administra nombre, ubicación, contacto, descripción y datos de donación desde un solo lugar.',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12.8,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _summaryChip(
+                            icon: Icons.edit_outlined,
+                            text: 'Editable',
+                          ),
+                          _summaryChip(
+                            icon: Icons.photo_camera_outlined,
+                            text: 'Logo y portada',
+                          ),
+                          _summaryChip(
+                            icon: Icons.favorite_outline,
+                            text: 'Donaciones',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    _imageActionButton(
+                      text: 'Cambiar logo',
+                      icon: Icons.photo_camera_outlined,
+                      onTap: _pickLogo,
+                    ),
+                    const SizedBox(width: 10),
+                    _imageActionButton(
+                      text: 'Cambiar portada',
+                      icon: Icons.image_outlined,
+                      onTap: _pickCover,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStickyActions() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.96),
+        border: const Border(
+          top: BorderSide(color: _border),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0B000000),
+            blurRadius: 12,
+            offset: Offset(0, -3),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.add_a_photo_outlined, size: 34),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: isSaving ? null : _saveChurch,
+                icon: isSaving
+                    ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.1,
+                    color: Colors.white,
+                  ),
+                )
+                    : const Icon(Icons.save_outlined),
+                label: Text(
+                  isSaving ? 'Guardando...' : 'Guardar cambios',
+                  style: const TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 10),
-            Text('Seleccionar $title'),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: OutlinedButton.icon(
+                onPressed: _logout,
+                icon: const Icon(Icons.logout),
+                label: const Text(
+                  'Cerrar sesión',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -588,227 +997,50 @@ class _ChurchProfileManageScreenState
     if (isLoading) {
       return const ChurchHeaderShell(
         child: Scaffold(
-          backgroundColor: Color(0xFFF7F9FC),
+          backgroundColor: _surface,
           body: Center(child: CircularProgressIndicator()),
         ),
       );
     }
 
-    final displayChurchName = churchNameController.text.trim().isEmpty
-        ? 'Mi iglesia'
-        : churchNameController.text.trim();
+    final mainSubtitle = churchNameController.text.trim().isEmpty
+        ? 'Completa los datos principales de tu iglesia.'
+        : _safeText(
+      pastorNameController.text,
+      'Actualiza la información general de tu iglesia.',
+    );
 
-    final displayLocation = [
+    final locationText = [
       if (cityController.text.trim().isNotEmpty) cityController.text.trim(),
-      if (countryController.text.trim().isNotEmpty)
-        countryController.text.trim(),
+      if (countryController.text.trim().isNotEmpty) countryController.text.trim(),
     ].join(', ');
 
-    final mainSubtitle = churchNameController.text.trim().isEmpty
-        ? 'Completa los datos básicos de tu iglesia'
-        : churchNameController.text.trim();
-
-    final locationSubtitle = displayLocation.isEmpty
-        ? 'Agrega ubicación, dirección y medios de contacto'
-        : displayLocation;
+    final locationSubtitle = locationText.isEmpty
+        ? 'Ubicación, dirección y medios de contacto.'
+        : locationText;
 
     final donationSubtitle = donationBankNameController.text.trim().isEmpty
-        ? 'Configura los datos para recibir apoyo y ofrendas'
+        ? 'Configura cómo recibir apoyo y ofrendas.'
         : donationBankNameController.text.trim();
 
     return ChurchHeaderShell(
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F9FC),
+        backgroundColor: _surface,
+        bottomNavigationBar: _buildStickyActions(),
         body: SafeArea(
           child: Form(
             key: _formKey,
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x12000000),
-                          blurRadius: 12,
-                          offset: Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            InkWell(
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(24),
-                              ),
-                              onTap: _pickCover,
-                              child: ClipRRect(
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(24),
-                                ),
-                                child: selectedCoverBytes != null
-                                    ? Image.memory(
-                                  selectedCoverBytes!,
-                                  width: double.infinity,
-                                  height: 150,
-                                  fit: BoxFit.cover,
-                                )
-                                    : coverUrl.isNotEmpty
-                                    ? Image.network(
-                                  coverUrl,
-                                  width: double.infinity,
-                                  height: 150,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      _emptyImagePlaceholder(
-                                        'Portada',
-                                        150,
-                                      ),
-                                )
-                                    : _emptyImagePlaceholder(
-                                  'Portada',
-                                  150,
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              left: 16,
-                              right: 16,
-                              bottom: -42,
-                              child: Row(
-                                children: [
-                                  InkWell(
-                                    borderRadius: BorderRadius.circular(20),
-                                    onTap: _pickLogo,
-                                    child: Container(
-                                      width: 84,
-                                      height: 84,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(
-                                          color: Colors.white,
-                                          width: 3,
-                                        ),
-                                        boxShadow: const [
-                                          BoxShadow(
-                                            color: Color(0x16000000),
-                                            blurRadius: 10,
-                                            offset: Offset(0, 4),
-                                          ),
-                                        ],
-                                      ),
-                                      clipBehavior: Clip.antiAlias,
-                                      child: selectedLogoBytes != null
-                                          ? Image.memory(
-                                        selectedLogoBytes!,
-                                        fit: BoxFit.cover,
-                                      )
-                                          : logoUrl.isNotEmpty
-                                          ? Image.network(
-                                        logoUrl,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                        const Icon(
-                                          Icons.church,
-                                          size: 34,
-                                          color: Color(0xFF0D47A1),
-                                        ),
-                                      )
-                                          : const Icon(
-                                        Icons.church,
-                                        size: 34,
-                                        color: Color(0xFF0D47A1),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(top: 44),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            displayChurchName,
-                                            style: const TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.bold,
-                                              height: 1.2,
-                                            ),
-                                          ),
-                                          if (displayLocation.isNotEmpty) ...[
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              displayLocation,
-                                              style: const TextStyle(
-                                                color: Colors.black54,
-                                                fontSize: 13.5,
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 56),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: _pickLogo,
-                                  icon:
-                                  const Icon(Icons.photo_camera_outlined),
-                                  label: const Text('Cambiar logo'),
-                                  style: OutlinedButton.styleFrom(
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: _pickCover,
-                                  icon: const Icon(Icons.image_outlined),
-                                  label: const Text('Cambiar portada'),
-                                  style: OutlinedButton.styleFrom(
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  _editableSectionCard(
+                  _headerCard(),
+                  const SizedBox(height: 16),
+                  _sectionCard(
                     title: 'Información principal',
                     subtitle: mainSubtitle,
-                    icon: Icons.church,
+                    icon: Icons.church_outlined,
                     isEditing: editMainInfo,
                     onToggle: () {
                       setState(() {
@@ -818,21 +1050,24 @@ class _ChurchProfileManageScreenState
                     previewItems: [
                       _infoPreviewRow(
                         icon: Icons.church_outlined,
-                        text: churchNameController.text.trim().isEmpty
-                            ? 'Nombre de la iglesia no agregado'
-                            : churchNameController.text.trim(),
+                        text: _safeText(
+                          churchNameController.text,
+                          'Nombre de la iglesia no agregado.',
+                        ),
                       ),
                       _infoPreviewRow(
                         icon: Icons.person_outline,
-                        text: pastorNameController.text.trim().isEmpty
-                            ? 'Pastor no agregado'
-                            : pastorNameController.text.trim(),
+                        text: _safeText(
+                          pastorNameController.text,
+                          'Pastor no agregado.',
+                        ),
                       ),
                       _infoPreviewRow(
                         icon: Icons.description_outlined,
-                        text: descriptionController.text.trim().isEmpty
-                            ? 'No hay descripción agregada'
-                            : descriptionController.text.trim(),
+                        text: _safeText(
+                          descriptionController.text,
+                          'No hay descripción agregada.',
+                        ),
                       ),
                     ],
                     fields: [
@@ -843,7 +1078,7 @@ class _ChurchProfileManageScreenState
                         decoration:
                         _decoration('Nombre de la iglesia', Icons.church),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       TextFormField(
                         controller: pastorNameController,
                         decoration: _decoration(
@@ -851,7 +1086,7 @@ class _ChurchProfileManageScreenState
                           Icons.person_outline,
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       TextFormField(
                         controller: descriptionController,
                         maxLines: 4,
@@ -860,7 +1095,7 @@ class _ChurchProfileManageScreenState
                           Icons.description_outlined,
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       TextFormField(
                         controller: doctrinalBaseController,
                         maxLines: 4,
@@ -871,10 +1106,8 @@ class _ChurchProfileManageScreenState
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 14),
-
-                  _editableSectionCard(
+                  _sectionCard(
                     title: 'Ubicación y contacto',
                     subtitle: locationSubtitle,
                     icon: Icons.location_on_outlined,
@@ -887,33 +1120,45 @@ class _ChurchProfileManageScreenState
                     previewItems: [
                       _infoPreviewRow(
                         icon: Icons.public,
-                        text: countryController.text.trim().isEmpty
-                            ? 'País no agregado'
-                            : countryController.text.trim(),
+                        text: _safeText(
+                          countryController.text,
+                          'País no agregado.',
+                        ),
                       ),
                       _infoPreviewRow(
                         icon: Icons.location_city,
-                        text: cityController.text.trim().isEmpty
-                            ? 'Ciudad no agregada'
-                            : cityController.text.trim(),
+                        text: _safeText(
+                          cityController.text,
+                          'Ciudad no agregada.',
+                        ),
+                      ),
+                      _infoPreviewRow(
+                        icon: Icons.map_outlined,
+                        text: _safeText(
+                          sectorController.text,
+                          'Sector no agregado.',
+                        ),
                       ),
                       _infoPreviewRow(
                         icon: Icons.location_on_outlined,
-                        text: addressController.text.trim().isEmpty
-                            ? 'Dirección no agregada'
-                            : addressController.text.trim(),
+                        text: _safeText(
+                          addressController.text,
+                          'Dirección no agregada.',
+                        ),
                       ),
                       _infoPreviewRow(
                         icon: Icons.phone_outlined,
-                        text: phoneController.text.trim().isEmpty
-                            ? 'Teléfono no agregado'
-                            : phoneController.text.trim(),
+                        text: _safeText(
+                          phoneController.text,
+                          'Teléfono no agregado.',
+                        ),
                       ),
                       _infoPreviewRow(
                         icon: Icons.message_outlined,
-                        text: whatsappController.text.trim().isEmpty
-                            ? 'WhatsApp no agregado'
-                            : whatsappController.text.trim(),
+                        text: _safeText(
+                          whatsappController.text,
+                          'WhatsApp no agregado.',
+                        ),
                       ),
                     ],
                     fields: [
@@ -922,19 +1167,19 @@ class _ChurchProfileManageScreenState
                         validator: (value) => _required(value, 'el país'),
                         decoration: _decoration('País', Icons.public),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       TextFormField(
                         controller: cityController,
                         validator: (value) => _required(value, 'la ciudad'),
                         decoration:
                         _decoration('Ciudad', Icons.location_city),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       TextFormField(
                         controller: sectorController,
                         decoration: _decoration('Sector', Icons.map_outlined),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       TextFormField(
                         controller: addressController,
                         validator: (value) => _required(value, 'la dirección'),
@@ -943,13 +1188,13 @@ class _ChurchProfileManageScreenState
                           Icons.location_on_outlined,
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       TextFormField(
                         controller: phoneController,
                         decoration:
                         _decoration('Teléfono', Icons.phone_outlined),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       TextFormField(
                         controller: whatsappController,
                         decoration:
@@ -957,10 +1202,8 @@ class _ChurchProfileManageScreenState
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 14),
-
-                  _editableSectionCard(
+                  _sectionCard(
                     title: 'Donaciones y ofrendas',
                     subtitle: donationSubtitle,
                     icon: Icons.favorite_outline,
@@ -973,29 +1216,38 @@ class _ChurchProfileManageScreenState
                     previewItems: [
                       _infoPreviewRow(
                         icon: Icons.account_balance_outlined,
-                        text: donationBankNameController.text.trim().isEmpty
-                            ? 'Banco no agregado'
-                            : donationBankNameController.text.trim(),
+                        text: _safeText(
+                          donationBankNameController.text,
+                          'Banco no agregado.',
+                        ),
                       ),
                       _infoPreviewRow(
                         icon: Icons.badge_outlined,
-                        text:
-                        donationAccountNameController.text.trim().isEmpty
-                            ? 'Titular no agregado'
-                            : donationAccountNameController.text.trim(),
+                        text: _safeText(
+                          donationAccountNameController.text,
+                          'Titular no agregado.',
+                        ),
                       ),
                       _infoPreviewRow(
                         icon: Icons.numbers,
-                        text:
-                        donationAccountNumberController.text.trim().isEmpty
-                            ? 'Número de cuenta no agregado'
-                            : donationAccountNumberController.text.trim(),
+                        text: _safeText(
+                          donationAccountNumberController.text,
+                          'Número de cuenta no agregado.',
+                        ),
+                      ),
+                      _infoPreviewRow(
+                        icon: Icons.credit_card_outlined,
+                        text: _safeText(
+                          donationAccountTypeController.text,
+                          'Tipo de cuenta no agregado.',
+                        ),
                       ),
                       _infoPreviewRow(
                         icon: Icons.info_outline,
-                        text: donationInstructionsController.text.trim().isEmpty
-                            ? 'No hay instrucciones para donar'
-                            : donationInstructionsController.text.trim(),
+                        text: _safeText(
+                          donationInstructionsController.text,
+                          'No hay instrucciones para donar.',
+                        ),
                       ),
                     ],
                     fields: [
@@ -1006,7 +1258,7 @@ class _ChurchProfileManageScreenState
                           Icons.badge_outlined,
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       TextFormField(
                         controller: donationBankNameController,
                         decoration: _decoration(
@@ -1014,7 +1266,7 @@ class _ChurchProfileManageScreenState
                           Icons.account_balance_outlined,
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       TextFormField(
                         controller: donationAccountNumberController,
                         decoration: _decoration(
@@ -1022,7 +1274,7 @@ class _ChurchProfileManageScreenState
                           Icons.numbers,
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       TextFormField(
                         controller: donationAccountTypeController,
                         decoration: _decoration(
@@ -1030,7 +1282,7 @@ class _ChurchProfileManageScreenState
                           Icons.credit_card_outlined,
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       TextFormField(
                         controller: donationInstructionsController,
                         maxLines: 4,
@@ -1040,64 +1292,6 @@ class _ChurchProfileManageScreenState
                         ),
                       ),
                     ],
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0D47A1),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      onPressed: isSaving ? null : _saveChurch,
-                      child: isSaving
-                          ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.2,
-                          color: Colors.white,
-                        ),
-                      )
-                          : const Text(
-                        'Guardar cambios',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: OutlinedButton.icon(
-                      onPressed: _logout,
-                      icon: const Icon(Icons.logout),
-                      label: const Text(
-                        'Cerrar sesión',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
                   ),
                 ],
               ),

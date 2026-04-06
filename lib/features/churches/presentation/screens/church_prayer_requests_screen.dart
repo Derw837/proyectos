@@ -12,6 +12,14 @@ class ChurchPrayerRequestsScreen extends StatefulWidget {
 
 class _ChurchPrayerRequestsScreenState
     extends State<ChurchPrayerRequestsScreen> {
+  static const Color _primary = Color(0xFF0D47A1);
+  static const Color _primaryLight = Color(0xFF1565C0);
+  static const Color _surface = Color(0xFFF4F7FB);
+  static const Color _card = Colors.white;
+  static const Color _textDark = Color(0xFF152033);
+  static const Color _textSoft = Color(0xFF6B7280);
+  static const Color _border = Color(0xFFE6EDF6);
+
   bool isLoading = true;
   List<Map<String, dynamic>> requests = [];
   List<Map<String, dynamic>> filtered = [];
@@ -104,12 +112,10 @@ class _ChurchPrayerRequestsScreenState
     final results = requests.where((r) {
       final category = r['category']?.toString() ?? '';
       final createdAt = r['created_at']?.toString() ?? '';
-      final createdDate =
-          DateTime.tryParse(createdAt) ?? DateTime(2000);
+      final createdDate = DateTime.tryParse(createdAt) ?? DateTime(2000);
 
       final matchesCategory =
           selectedCategory == 'all' || category == selectedCategory;
-
       final matchesPeriod = _matchesPeriod(createdDate);
 
       return matchesCategory && matchesPeriod;
@@ -118,6 +124,124 @@ class _ChurchPrayerRequestsScreenState
     setState(() {
       filtered = results;
     });
+  }
+
+  Future<void> _toggleSupport(Map<String, dynamic> item) async {
+    final prayerId = item['prayer_request_id']?.toString() ?? '';
+    if (prayerId.isEmpty) return;
+
+    await ChurchPrayerRequestsService.toggleChurchPrayerSupport(prayerId);
+    await _load();
+  }
+
+  Widget _sectionTitle(String title, String subtitle) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: _textDark,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              color: _textSoft,
+              fontSize: 13,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroCard() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [_primary, _primaryLight],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x220D47A1),
+            blurRadius: 22,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Peticiones de oración',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              height: 1.15,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _heroChip(
+                icon: Icons.volunteer_activism_outlined,
+                text: '${requests.length} total',
+              ),
+              _heroChip(
+                icon: Icons.filter_alt_outlined,
+                text: '${filtered.length} visibles',
+              ),
+              _heroChip(
+                icon: Icons.favorite_outline,
+                text: 'Apoyo pastoral',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroChip({
+    required IconData icon,
+    required String text,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12.3,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _filterBox({
@@ -132,16 +256,28 @@ class _ChurchPrayerRequestsScreenState
       isExpanded: true,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon),
+        labelStyle: const TextStyle(
+          color: _textSoft,
+          fontWeight: FontWeight.w600,
+        ),
+        prefixIcon: Icon(icon, color: _primary),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: _card,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: _border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: _primary, width: 1.2),
         ),
       ),
       items: items
@@ -156,9 +292,80 @@ class _ChurchPrayerRequestsScreenState
     );
   }
 
+  Widget _summaryCard() {
+    final categoryText = categories.firstWhere(
+          (c) => c['value'] == selectedCategory,
+      orElse: () => {'value': 'all', 'label': 'Todas'},
+    )['label'];
+
+    final periodText = periods.firstWhere(
+          (p) => p['value'] == selectedPeriod,
+      orElse: () => {'value': 'all', 'label': 'Todo'},
+    )['label'];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _border),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF2FF),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: const Icon(
+              Icons.insights_outlined,
+              color: _primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  filtered.length == 1
+                      ? '1 petición en esta vista'
+                      : '${filtered.length} peticiones en esta vista',
+                  style: const TextStyle(
+                    color: _textDark,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Filtro: $periodText • $categoryText',
+                  style: const TextStyle(
+                    color: _textSoft,
+                    fontSize: 12.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _statusChip(bool isMember) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: isMember ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3E0),
         borderRadius: BorderRadius.circular(999),
@@ -167,47 +374,44 @@ class _ChurchPrayerRequestsScreenState
         isMember ? 'Miembro' : 'No miembro',
         style: TextStyle(
           color: isMember ? const Color(0xFF2E7D32) : Colors.deepOrange,
-          fontWeight: FontWeight.bold,
-          fontSize: 11.5,
+          fontWeight: FontWeight.w800,
+          fontSize: 11.8,
         ),
       ),
     );
   }
 
-  Widget _chip(String text, IconData icon, {Color? color}) {
-    final chipColor = color ?? const Color(0xFFEAF4FF);
-    final textColor = color == null ? const Color(0xFF0D47A1) : Colors.white;
+  Widget _chip(
+      String text,
+      IconData icon, {
+        Color? bgColor,
+        Color? textColor,
+      }) {
+    final resolvedBg = bgColor ?? const Color(0xFFEAF2FF);
+    final resolvedText = textColor ?? _primary;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: chipColor,
+        color: resolvedBg,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: textColor),
+          Icon(icon, size: 14, color: resolvedText),
           const SizedBox(width: 6),
           Text(
             text,
             style: TextStyle(
-              color: textColor,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
+              color: resolvedText,
+              fontWeight: FontWeight.w700,
+              fontSize: 11.8,
             ),
           ),
         ],
       ),
     );
-  }
-
-  Future<void> _toggleSupport(Map<String, dynamic> item) async {
-    final prayerId = item['prayer_request_id']?.toString() ?? '';
-    if (prayerId.isEmpty) return;
-
-    await ChurchPrayerRequestsService.toggleChurchPrayerSupport(prayerId);
-    await _load();
   }
 
   Widget _requestCard(Map<String, dynamic> r) {
@@ -220,9 +424,8 @@ class _ChurchPrayerRequestsScreenState
     final isMember = r['is_member_of_my_church'] == true;
     final supported = r['supported_by_my_church'] == true;
     final createdAt = (r['created_at'] ?? '').toString();
-    final createdDate = createdAt.isNotEmpty
-        ? createdAt.split('T').first
-        : 'Sin fecha';
+    final createdDate =
+    createdAt.isNotEmpty ? createdAt.split('T').first : 'Sin fecha';
 
     final description = isForMe
         ? '$author pide oración por su $category.'
@@ -230,13 +433,14 @@ class _ChurchPrayerRequestsScreenState
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        color: _card,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _border),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x10000000),
+            color: Color(0x0A000000),
             blurRadius: 10,
             offset: Offset(0, 4),
           ),
@@ -251,9 +455,10 @@ class _ChurchPrayerRequestsScreenState
                 child: Text(
                   description,
                   style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14.5,
-                    height: 1.25,
+                    color: _textDark,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14.6,
+                    height: 1.3,
                   ),
                 ),
               ),
@@ -271,26 +476,31 @@ class _ChurchPrayerRequestsScreenState
               _chip(createdDate, Icons.calendar_today_outlined),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
-            height: 46,
+            height: 47,
             child: ElevatedButton.icon(
               onPressed: () => _toggleSupport(r),
               icon: Icon(
-                supported ? Icons.check_circle : Icons.volunteer_activism,
+                supported ? Icons.check_circle_outline : Icons.favorite_outline,
               ),
               label: Text(
                 supported
                     ? 'La iglesia está orando'
                     : 'Marcar que la iglesia ora',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13.8,
+                ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor:
-                supported ? Colors.green : const Color(0xFF0D47A1),
+                supported ? const Color(0xFF2E7D32) : _primary,
                 foregroundColor: Colors.white,
+                elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(15),
                 ),
               ),
             ),
@@ -300,47 +510,106 @@ class _ChurchPrayerRequestsScreenState
     );
   }
 
-  Widget _topSummary() {
+  Widget _emptyState() {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(26),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D000000),
-            blurRadius: 8,
-            offset: Offset(0, 3),
-          ),
-        ],
+        color: _card,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _border),
       ),
-      child: Row(
+      child: Column(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 76,
+            height: 76,
             decoration: BoxDecoration(
-              color: const Color(0xFFEAF4FF),
-              borderRadius: BorderRadius.circular(14),
+              color: const Color(0xFFEAF2FF),
+              borderRadius: BorderRadius.circular(24),
             ),
             child: const Icon(
               Icons.volunteer_activism_outlined,
-              color: Color(0xFF0D47A1),
+              size: 34,
+              color: _primary,
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              filtered.length == 1
-                  ? 'Hay 1 petición en esta vista'
-                  : 'Hay ${filtered.length} peticiones en esta vista',
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 14.5,
-              ),
+          const SizedBox(height: 14),
+          const Text(
+            'No hay peticiones con esos filtros',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: _textDark,
+              fontSize: 16.2,
+              fontWeight: FontWeight.w800,
             ),
           ),
+          const SizedBox(height: 6),
+          const Text(
+            'Prueba otro período o una categoría distinta para ver más resultados.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: _textSoft,
+              fontSize: 13.2,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _content() {
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          _heroCard(),
+          const SizedBox(height: 18),
+          _sectionTitle(
+            'Filtros',
+            'Selecciona el período y la categoría que deseas revisar.',
+          ),
+          _filterBox(
+            label: 'Filtrar por tiempo',
+            value: selectedPeriod,
+            items: periods,
+            icon: Icons.date_range_outlined,
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() {
+                selectedPeriod = value;
+              });
+              _applyFilters();
+            },
+          ),
+          const SizedBox(height: 12),
+          _filterBox(
+            label: 'Filtrar por categoría',
+            value: selectedCategory,
+            items: categories,
+            icon: Icons.filter_list,
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() {
+                selectedCategory = value;
+              });
+              _applyFilters();
+            },
+          ),
+          const SizedBox(height: 12),
+          _summaryCard(),
+          const SizedBox(height: 20),
+          _sectionTitle(
+            'Listado de peticiones',
+            'Visualiza y marca cuáles están siendo atendidas por la iglesia.',
+          ),
+          if (filtered.isEmpty)
+            _emptyState()
+          else
+            ...filtered.map(_requestCard),
         ],
       ),
     );
@@ -350,64 +619,10 @@ class _ChurchPrayerRequestsScreenState
   Widget build(BuildContext context) {
     return ChurchHeaderShell(
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F9FC),
-        appBar: AppBar(
-          title: const Text('Peticiones de oración'),
-          backgroundColor: const Color(0xFFF7F9FC),
-          centerTitle: true,
-        ),
+        backgroundColor: _surface,
         body: isLoading
             ? const Center(child: CircularProgressIndicator())
-            : RefreshIndicator(
-          onRefresh: _load,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
-            children: [
-              _filterBox(
-                label: 'Filtrar por tiempo',
-                value: selectedPeriod,
-                items: periods,
-                icon: Icons.date_range_outlined,
-                onChanged: (value) {
-                  if (value == null) return;
-                  setState(() {
-                    selectedPeriod = value;
-                  });
-                  _applyFilters();
-                },
-              ),
-              const SizedBox(height: 12),
-              _filterBox(
-                label: 'Filtrar por categoría',
-                value: selectedCategory,
-                items: categories,
-                icon: Icons.filter_list,
-                onChanged: (value) {
-                  if (value == null) return;
-                  setState(() {
-                    selectedCategory = value;
-                  });
-                  _applyFilters();
-                },
-              ),
-              const SizedBox(height: 12),
-              _topSummary(),
-              const SizedBox(height: 14),
-              if (filtered.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.only(top: 40),
-                  child: Center(
-                    child: Text(
-                      'No hay peticiones con esos filtros.',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                )
-              else
-                ...filtered.map(_requestCard),
-            ],
-          ),
-        ),
+            : _content(),
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:red_cristiana/features/churches/data/church_dashboard_service.dart';
 import 'package:red_cristiana/features/churches/presentation/screens/church_events_manage_screen.dart';
+import 'package:red_cristiana/features/churches/presentation/screens/church_feed_screen.dart';
 import 'package:red_cristiana/features/churches/presentation/screens/church_members_screen.dart';
 import 'package:red_cristiana/features/churches/presentation/screens/church_notify_members_screen.dart';
 import 'package:red_cristiana/features/churches/presentation/screens/church_posts_manage_screen.dart';
@@ -9,7 +10,6 @@ import 'package:red_cristiana/features/churches/presentation/screens/church_prof
 import 'package:red_cristiana/features/churches/presentation/screens/church_profile_videos_manage_screen.dart';
 import 'package:red_cristiana/features/churches/presentation/screens/church_schedules_manage_screen.dart';
 import 'package:red_cristiana/features/churches/presentation/screens/church_spiritual_help_screen.dart';
-import 'package:red_cristiana/features/churches/presentation/screens/church_feed_screen.dart';
 import 'package:red_cristiana/features/churches/presentation/widgets/church_header_shell.dart';
 
 class ChurchDashboardScreen extends StatefulWidget {
@@ -20,6 +20,13 @@ class ChurchDashboardScreen extends StatefulWidget {
 }
 
 class _ChurchDashboardScreenState extends State<ChurchDashboardScreen> {
+  static const Color _primary = Color(0xFF0D47A1);
+  static const Color _primaryLight = Color(0xFF1565C0);
+  static const Color _surface = Color(0xFFF4F7FB);
+  static const Color _card = Colors.white;
+  static const Color _textDark = Color(0xFF152033);
+  static const Color _textSoft = Color(0xFF6B7280);
+
   bool isLoading = true;
   int likesCount = 0;
   int membersCount = 0;
@@ -46,6 +53,7 @@ class _ChurchDashboardScreenState extends State<ChurchDashboardScreen> {
       });
     } catch (_) {
       if (!mounted) return;
+
       setState(() {
         isLoading = false;
       });
@@ -60,100 +68,342 @@ class _ChurchDashboardScreenState extends State<ChurchDashboardScreen> {
     await _loadStats();
   }
 
-  Widget _statCard({
-    required String value,
-    required String label,
+  String _getInitials(String text) {
+    final parts = text
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((e) => e.trim().isNotEmpty)
+        .toList();
+
+    if (parts.isEmpty) return 'IG';
+    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+
+    return (parts.first.substring(0, 1) + parts[1].substring(0, 1))
+        .toUpperCase();
+  }
+
+  Widget _sectionTitle(String title, String subtitle) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: _textDark,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              color: _textSoft,
+              fontSize: 13,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroCard() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [_primary, _primaryLight],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x220D47A1),
+            blurRadius: 22,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.12),
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    _getInitials(churchName),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Panel pastoral',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Centro de administración',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.verified_outlined,
+                      color: Colors.white,
+                      size: 15,
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      'Activa',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            churchName,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              height: 1.15,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _heroChip(
+                icon: Icons.groups_outlined,
+                text: '$membersCount miembros',
+              ),
+              _heroChip(
+                icon: Icons.favorite_border,
+                text: '$likesCount me gusta',
+              ),
+              _heroChip(
+                icon: Icons.auto_awesome_outlined,
+                text: 'Área pastoral',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroChip({
     required IconData icon,
+    required String text,
   }) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x0F000000),
-              blurRadius: 10,
-              offset: Offset(0, 4),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
             ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: const Color(0xFF0D47A1), size: 24),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statCard({
+    required IconData icon,
+    required String title,
+    required String value,
+    required String subtitle,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE8EEF7)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0C000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF2FF),
+              borderRadius: BorderRadius.circular(15),
             ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.black54,
-                fontSize: 13.5,
-              ),
+            child: Icon(icon, color: _primary, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: _textDark,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: _textDark,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: _textSoft,
+                    fontSize: 12,
+                    height: 1.25,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _quickAction({
     required String title,
+    required String subtitle,
     required IconData icon,
     required Color color,
     required Widget screen,
   }) {
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(20),
       onTap: () => _openScreen(screen),
-      child: Container(
+      child: Ink(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(18),
+          color: _card,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE8EEF7)),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x15000000),
-              blurRadius: 8,
-              offset: Offset(0, 3),
+              color: Color(0x0C000000),
+              blurRadius: 12,
+              offset: Offset(0, 4),
             ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: Colors.white, size: 24),
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
             const Spacer(),
             Text(
               title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
+                color: _textDark,
                 fontSize: 14,
+                fontWeight: FontWeight.w800,
                 height: 1.2,
               ),
             ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: _textSoft,
+                fontSize: 12.2,
+                height: 1.25,
+              ),
+            ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _sectionTitle(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10, top: 4),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.bold,
         ),
       ),
     );
@@ -165,62 +415,198 @@ class _ChurchDashboardScreenState extends State<ChurchDashboardScreen> {
     required IconData icon,
     required Widget screen,
   }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () => _openScreen(screen),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x10000000),
-              blurRadius: 10,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: const Color(0xFFEAF4FF),
-                borderRadius: BorderRadius.circular(16),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => _openScreen(screen),
+        child: Ink(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: _card,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE8EEF7)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0C000000),
+                blurRadius: 12,
+                offset: Offset(0, 4),
               ),
-              child: Icon(icon, color: const Color(0xFF0D47A1)),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: Colors.black54,
-                      height: 1.35,
-                      fontSize: 13.5,
-                    ),
-                  ),
-                ],
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF2FF),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(icon, color: _primary, size: 22),
               ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(Icons.arrow_forward_ios_rounded, size: 16),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: _textDark,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: _textSoft,
+                        fontSize: 12.5,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF2F5FA),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 15,
+                  color: _textSoft,
+                ),
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _dashboardContent() {
+    return RefreshIndicator(
+      onRefresh: _loadStats,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          _heroCard(),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _statCard(
+                  icon: Icons.favorite_outline,
+                  title: 'Me gusta',
+                  value: '$likesCount',
+                  subtitle: 'Apoyo recibido',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _statCard(
+                  icon: Icons.groups_2_outlined,
+                  title: 'Miembros',
+                  value: '$membersCount',
+                  subtitle: 'Comunidad activa',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _sectionTitle(
+            'Accesos rápidos',
+            'Lo más usado para gestionar la iglesia de forma ágil.',
+          ),
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 1.05,
+            children: [
+              _quickAction(
+                title: 'Publicaciones',
+                subtitle: 'Ver todo el feed',
+                icon: Icons.public,
+                color: _primary,
+                screen: const ChurchFeedScreen(),
+              ),
+              _quickAction(
+                title: 'Miembros',
+                subtitle: 'Listado y búsqueda',
+                icon: Icons.groups_outlined,
+                color: const Color(0xFF2E7D32),
+                screen: const ChurchMembersScreen(),
+              ),
+              _quickAction(
+                title: 'Notificar',
+                subtitle: 'Avisar a miembros',
+                icon: Icons.notifications_active_outlined,
+                color: const Color(0xFF6A1B9A),
+                screen: const ChurchNotifyMembersScreen(),
+              ),
+              _quickAction(
+                title: 'Petición  de Oración',
+                subtitle: 'Peticiones recibidas',
+                icon: Icons.volunteer_activism_outlined,
+                color: const Color(0xFFEF6C00),
+                screen: const ChurchPrayerRequestsScreen(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _sectionTitle(
+            'Administración',
+            'Actualiza y organiza toda la información de tu iglesia.',
+          ),
+          _optionCard(
+            title: 'Editar perfil de iglesia',
+            subtitle: 'Nombre, contacto, ubicación, descripción y donaciones.',
+            icon: Icons.edit_outlined,
+            screen: const ChurchProfileManageScreen(),
+          ),
+          _optionCard(
+            title: 'Administrar horarios',
+            subtitle: 'Cultos, reuniones, actividades y horarios semanales.',
+            icon: Icons.schedule_outlined,
+            screen: const ChurchSchedulesManageScreen(),
+          ),
+          _optionCard(
+            title: 'Publicar eventos',
+            subtitle: 'Campañas, conciertos, conferencias y actividades.',
+            icon: Icons.event_available_outlined,
+            screen: const ChurchEventsManageScreen(),
+          ),
+          _optionCard(
+            title: 'Publicaciones y fotos',
+            subtitle: 'Mensajes, novedades, imágenes y contenido visual.',
+            icon: Icons.photo_library_outlined,
+            screen: const ChurchPostsManageScreen(),
+          ),
+          _optionCard(
+            title: 'Videos de mi iglesia',
+            subtitle: 'YouTube y otros enlaces de video para la comunidad.',
+            icon: Icons.ondemand_video_outlined,
+            screen: const ChurchProfileVideosManageScreen(),
+          ),
+          _optionCard(
+            title: 'Apoyo espiritual',
+            subtitle: 'Configura el botón de ayuda espiritual y su destino.',
+            icon: Icons.volunteer_activism_outlined,
+            screen: const ChurchSpiritualHelpScreen(),
+          ),
+        ],
       ),
     );
   }
@@ -228,151 +614,12 @@ class _ChurchDashboardScreenState extends State<ChurchDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return ChurchHeaderShell(
-        child: Scaffold(
-          backgroundColor: const Color(0xFFF7F9FC),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-        onRefresh: _loadStats,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 18),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF0D47A1), Color(0xFF1565C0)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Panel pastoral',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    churchName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      height: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Administra tu iglesia y da seguimiento a tu comunidad.',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      height: 1.35,
-                      fontSize: 13.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                _statCard(
-                  value: '$likesCount',
-                  label: 'Me gusta',
-                  icon: Icons.favorite_border,
-                ),
-                const SizedBox(width: 10),
-                _statCard(
-                  value: '$membersCount',
-                  label: 'Miembros',
-                  icon: Icons.groups_outlined,
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            _sectionTitle('Accesos rápidos'),
-            GridView.count(
-              physics: const NeverScrollableScrollPhysics(),
-              shrinkWrap: true,
-              crossAxisCount: 2,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 1.55,
-              children: [
-                _quickAction(
-                  title: 'Ver todas las\nPublicaciones',
-                  icon: Icons.public,
-                  color: const Color(0xFF0D47A1),
-                  screen: const ChurchFeedScreen(),
-                ),
-                _quickAction(
-                  title: 'Ver\nmiembros',
-                  icon: Icons.groups_outlined,
-                  color: const Color(0xFF2E7D32),
-                  screen: const ChurchMembersScreen(),
-                ),
-                _quickAction(
-                  title: 'Notificar\nmiembros',
-                  icon: Icons.notifications_active_outlined,
-                  color: const Color(0xFF6A1B9A),
-                  screen: const ChurchNotifyMembersScreen(),
-                ),
-                _quickAction(
-                  title: 'Peticiones\nde oración',
-                  icon: Icons.volunteer_activism_outlined,
-                  color: const Color(0xFFEF6C00),
-                  screen: const ChurchPrayerRequestsScreen(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            _sectionTitle('Administración'),
-            _optionCard(
-              title: 'Editar perfil de iglesia',
-              subtitle: 'Actualiza nombre, dirección, contacto y donaciones.',
-              icon: Icons.edit_outlined,
-              screen: const ChurchProfileManageScreen(),
-            ),
-            _optionCard(
-              title: 'Administrar horarios',
-              subtitle: 'Agrega cultos, reuniones y horarios semanales.',
-              icon: Icons.schedule_outlined,
-              screen: const ChurchSchedulesManageScreen(),
-            ),
-            _optionCard(
-              title: 'Publicar eventos',
-              subtitle: 'Agrega campañas, conciertos y actividades.',
-              icon: Icons.event_available_outlined,
-              screen: const ChurchEventsManageScreen(),
-            ),
-            _optionCard(
-              title: 'Publicaciones y fotos',
-              subtitle: 'Comparte imágenes, mensajes y novedades.',
-              icon: Icons.photo_library_outlined,
-              screen: const ChurchPostsManageScreen(),
-            ),
-            _optionCard(
-              title: 'Videos de mi iglesia',
-              subtitle: 'Publica enlaces de YouTube u otros videos.',
-              icon: Icons.ondemand_video_outlined,
-              screen: const ChurchProfileVideosManageScreen(),
-            ),
-            _optionCard(
-              title: 'Configurar apoyo espiritual',
-              subtitle: 'Personaliza el botón de ayuda espiritual.',
-              icon: Icons.volunteer_activism_outlined,
-              screen: const ChurchSpiritualHelpScreen(),
-            ),
-          ],
-        ),
+      child: Scaffold(
+        backgroundColor: _surface,
+        body: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _dashboardContent(),
       ),
-        ),
     );
   }
 }
