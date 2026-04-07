@@ -574,12 +574,73 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
 
   Widget _emptyHeaderImage(IconData icon) {
     return Container(
-      color: const Color(0xFFF3F6FB),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_primary, _primaryLight],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
       child: Center(
         child: Icon(
           icon,
-          size: 36,
-          color: const Color(0xFF89A0C4),
+          size: 42,
+          color: Colors.white.withValues(alpha: 0.85),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogoAvatar() {
+    final church = widget.church;
+
+    return Container(
+      width: 96,
+      height: 96,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: Colors.white,
+          width: 2.5,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x22000000),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: church.logoUrl != null && church.logoUrl!.trim().isNotEmpty
+            ? Image.network(
+          church.logoUrl!,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) {
+            return Container(
+              color: const Color(0xFFEAF2FF),
+              child: const Center(
+                child: Icon(
+                  Icons.church,
+                  color: _primary,
+                  size: 36,
+                ),
+              ),
+            );
+          },
+        )
+            : Container(
+          color: const Color(0xFFEAF2FF),
+          child: const Center(
+            child: Icon(
+              Icons.church,
+              color: _primary,
+              size: 36,
+            ),
+          ),
         ),
       ),
     );
@@ -753,35 +814,16 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
     );
   }
 
-  Widget _coverPlaceholder() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [_primary, _primaryLight],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: const Center(
-        child: Icon(
-          Icons.church,
-          color: Colors.white,
-          size: 44,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final church = widget.church;
+
     final location = [
       if (church.city.isNotEmpty) church.city,
       if (church.country.isNotEmpty) church.country,
     ].join(', ');
 
-    final supportText =
-    (church.spiritualHelpLabel ?? '').trim().isNotEmpty
+    final supportText = (church.spiritualHelpLabel ?? '').trim().isNotEmpty
         ? church.spiritualHelpLabel!.trim()
         : 'Recibir apoyo espiritual';
 
@@ -790,382 +832,320 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 250,
+            expandedHeight: 280,
             pinned: true,
-            backgroundColor: _primary,
             elevation: 0,
+            backgroundColor: _primary,
+            stretch: true,
+            iconTheme: const IconThemeData(color: Colors.white),
+            flexibleSpace: FlexibleSpaceBar(
+              background: Stack(
+                clipBehavior: Clip.none,
+                fit: StackFit.expand,
+                children: [
+                  _buildHeaderImage(
+                    networkUrl: church.coverUrl,
+                    fallbackIcon: Icons.landscape_outlined,
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.18),
+                          Colors.black.withValues(alpha: 0.08),
+                          Colors.black.withValues(alpha: 0.50),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 18,
+                    bottom: -34,
+                    child: _buildLogoAvatar(),
+                  ),
+                ],
+              ),
+            ),
           ),
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: _card,
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x10000000),
-                              blurRadius: 18,
-                              offset: Offset(0, 6),
+            child: Transform.translate(
+              offset: const Offset(0, -8),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: _card,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x10000000),
+                            blurRadius: 18,
+                            offset: Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 58, 16, 16),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [_primary, _primaryLight],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                ClipRRect(
-                                  borderRadius: const BorderRadius.vertical(
-                                    top: Radius.circular(24),
-                                  ),
-                                  child: SizedBox(
-                                    width: double.infinity,
-                                    height: 168,
-                                    child: Stack(
-                                      fit: StackFit.expand,
-                                      children: [
-                                        _buildHeaderImage(
-                                          networkUrl: church.coverUrl,
-                                          fallbackIcon: Icons.landscape_outlined,
-                                        ),
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter,
-                                              colors: [
-                                                Colors.black.withValues(alpha: 0.05),
-                                                Colors.black.withValues(alpha: 0.38),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x220D47A1),
+                                blurRadius: 20,
+                                offset: Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                church.churchName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.15,
                                 ),
-                                Positioned(
-                                  left: 16,
-                                  bottom: -38,
-                                  child: Container(
-                                    width: 86,
-                                    height: 86,
-                                    padding: const EdgeInsets.all(3),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(22),
-                                      boxShadow: const [
-                                        BoxShadow(
-                                          color: Color(0x16000000),
-                                          blurRadius: 10,
-                                          offset: Offset(0, 4),
-                                        ),
-                                      ],
-                                    ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(19),
-                                      child: church.logoUrl != null &&
-                                          church.logoUrl!.trim().isNotEmpty
-                                          ? Image.network(
-                                        church.logoUrl!,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) {
-                                          return Container(
-                                            color: const Color(0xFFEAF2FF),
-                                            child: const Center(
-                                              child: Icon(
-                                                Icons.church,
-                                                color: _primary,
-                                                size: 32,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      )
-                                          : Container(
-                                        color: const Color(0xFFEAF2FF),
-                                        child: const Center(
-                                          child: Icon(
-                                            Icons.church,
-                                            color: _primary,
-                                            size: 32,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                              ),
+                              if (church.pastorName.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Pastor: ${church.pastorName}',
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ],
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 50, 16, 16),
-                              child: Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(18),
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [_primary, _primaryLight],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
+                              if (location.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  location,
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13.2,
                                   ),
-                                  borderRadius: BorderRadius.circular(24),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Color(0x220D47A1),
-                                      blurRadius: 20,
-                                      offset: Offset(0, 8),
-                                    ),
-                                  ],
                                 ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                              ],
+                              if (church.description.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                Text(
+                                  church.description,
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13.2,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                              if (church.sector.isNotEmpty) ...[
+                                const SizedBox(height: 14),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
                                   children: [
-                                    Text(
-                                      church.churchName,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w800,
-                                        height: 1.15,
-                                      ),
+                                    _heroChip(
+                                      icon: Icons.place_outlined,
+                                      text: church.sector,
                                     ),
-                                    if (church.pastorName.isNotEmpty) ...[
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        'Pastor: ${church.pastorName}',
-                                        style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 13.5,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                    if (location.isNotEmpty) ...[
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        location,
-                                        style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 13.2,
-                                        ),
-                                      ),
-                                    ],
-                                    if (church.description.isNotEmpty) ...[
-                                      const SizedBox(height: 12),
-                                      Text(
-                                        church.description,
-                                        style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 13.2,
-                                          height: 1.4,
-                                        ),
-                                      ),
-                                    ],
-                                    if (church.sector.isNotEmpty) ...[
-                                      const SizedBox(height: 14),
-                                      Wrap(
-                                        spacing: 8,
-                                        runSpacing: 8,
-                                        children: [
-                                          _heroChip(
-                                            icon: Icons.place_outlined,
-                                            text: church.sector,
-                                          ),
-                                        ],
-                                      ),
-                                    ],
                                   ],
                                 ),
-                              ),
-                            ),
-                          ],
+                              ],
+                            ],
+                          ),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  if (!isLoadingStats)
+                    ),
+                    const SizedBox(height: 14),
+                    if (!isLoadingStats)
+                      Row(
+                        children: [
+                          _statCard(
+                            value: '$likesCount',
+                            label: 'Me gusta',
+                            icon: Icons.favorite_outline,
+                          ),
+                          const SizedBox(width: 10),
+                          _statCard(
+                            value: '$membersCount',
+                            label: 'Miembros',
+                            icon: Icons.groups_outlined,
+                          ),
+                        ],
+                      ),
+                    const SizedBox(height: 14),
                     Row(
                       children: [
-                        _statCard(
-                          value: '$likesCount',
-                          label: 'Me gusta',
-                          icon: Icons.favorite_outline,
+                        _mainActionButton(
+                          title: likedByMe ? 'Te gusta' : 'Me gusta',
+                          icon: likedByMe
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          onTap: _toggleLike,
+                          backgroundColor: likedByMe ? Colors.red : _primary,
                         ),
                         const SizedBox(width: 10),
-                        _statCard(
-                          value: '$membersCount',
-                          label: 'Miembros',
-                          icon: Icons.groups_outlined,
+                        _mainActionButton(
+                          title: memberByMe ? 'Soy miembro' : 'Unirme',
+                          icon: memberByMe
+                              ? Icons.verified_user
+                              : Icons.group_add_outlined,
+                          onTap: _toggleMember,
+                          backgroundColor: const Color(0xFF2E7D32),
                         ),
                       ],
                     ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      _mainActionButton(
-                        title: likedByMe ? 'Te gusta' : 'Me gusta',
-                        icon: likedByMe
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                        onTap: _toggleLike,
-                        backgroundColor:
-                        likedByMe ? Colors.red : _primary,
-                      ),
-                      const SizedBox(width: 10),
-                      _mainActionButton(
-                        title: memberByMe ? 'Soy miembro' : 'Unirme',
-                        icon: memberByMe
-                            ? Icons.verified_user
-                            : Icons.group_add_outlined,
-                        onTap: _toggleMember,
-                        backgroundColor: const Color(0xFF2E7D32),
+                    if (church.whatsapp.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _openWhatsApp(church.whatsapp),
+                          icon: const Icon(Icons.volunteer_activism_outlined),
+                          label: Text(
+                            supportText,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13.8,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF8E24AA),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
-                  ),
-                  if (church.whatsapp.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton.icon(
-                        onPressed: () => _openWhatsApp(church.whatsapp),
-
-                        icon: const Icon(Icons.volunteer_activism_outlined),
-                        label: Text(
-                          supportText,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13.8,
+                    const SizedBox(height: 18),
+                    _sectionCard(
+                      title: 'Contacto',
+                      icon: Icons.contact_phone_outlined,
+                      child: Column(
+                        children: [
+                          _infoRow(
+                            label: 'Dirección',
+                            value: church.address,
+                            icon: Icons.location_on_outlined,
+                            copyable: true,
                           ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF8E24AA),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                          _infoRow(
+                            label: 'Teléfono',
+                            value: church.phone,
+                            icon: Icons.phone_outlined,
+                            copyable: true,
                           ),
-                        ),
+                          _infoRow(
+                            label: 'WhatsApp',
+                            value: church.whatsapp,
+                            icon: Icons.message_outlined,
+                            copyable: true,
+                          ),
+                          _infoRow(
+                            label: 'Correo',
+                            value: church.email,
+                            icon: Icons.email_outlined,
+                            copyable: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                    _sectionCard(
+                      title: 'Ofrendar',
+                      icon: Icons.volunteer_activism_outlined,
+                      child: Column(
+                        children: [
+                          _infoRow(
+                            label: 'País',
+                            value: church.country,
+                            icon: Icons.public,
+                          ),
+                          _infoRow(
+                            label: 'Titular',
+                            value: church.donationAccountName,
+                            icon: Icons.badge_outlined,
+                          ),
+                          _infoRow(
+                            label: 'Banco',
+                            value: church.donationBankName,
+                            icon: Icons.account_balance_outlined,
+                          ),
+                          _infoRow(
+                            label: 'Cuenta',
+                            value: church.donationAccountNumber,
+                            icon: Icons.numbers,
+                          ),
+                          _infoRow(
+                            label: 'Tipo',
+                            value: church.donationAccountType,
+                            icon: Icons.credit_card_outlined,
+                          ),
+                          _infoRow(
+                            label: 'Instrucciones',
+                            value: church.donationInstructions,
+                            icon: Icons.info_outline,
+                          ),
+                        ],
+                      ),
+                    ),
+                    _sectionCard(
+                      title: 'Horarios de culto',
+                      icon: Icons.schedule_outlined,
+                      child: _buildSchedules(),
+                    ),
+                    _sectionCard(
+                      title: 'Explorar esta iglesia',
+                      icon: Icons.explore_outlined,
+                      child: Column(
+                        children: [
+                          _exploreButton(
+                            title: 'Ver publicaciones y videos',
+                            subtitle: 'Explora el contenido visual y el feed.',
+                            icon: Icons.dynamic_feed_outlined,
+                            onTap: _openChurchFeed,
+                            color: _primary,
+                          ),
+                          const SizedBox(height: 10),
+                          _exploreButton(
+                            title: 'Ver eventos',
+                            subtitle: 'Consulta actividades y reuniones.',
+                            icon: Icons.event_outlined,
+                            onTap: _openChurchEvents,
+                            color: const Color(0xFFEF6C00),
+                          ),
+                          const SizedBox(height: 10),
+                          _exploreButton(
+                            title: 'Ver ubicación',
+                            subtitle: 'Abrir esta iglesia en Google Maps.',
+                            icon: Icons.location_on_outlined,
+                            onTap: _openChurchLocation,
+                            color: const Color(0xFF455A64),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                  const SizedBox(height: 18),
-                  _sectionCard(
-                    title: 'Contacto',
-                    icon: Icons.contact_phone_outlined,
-                    child: Column(
-                      children: [
-                        _infoRow(
-                          label: 'Dirección',
-                          value: church.address,
-                          icon: Icons.location_on_outlined,
-                          copyable: true,
-                        ),
-                        _infoRow(
-                          label: 'Teléfono',
-                          value: church.phone,
-                          icon: Icons.phone_outlined,
-                          copyable: true,
-                        ),
-                        _infoRow(
-                          label: 'WhatsApp',
-                          value: church.whatsapp,
-                          icon: Icons.message_outlined,
-                          copyable: true,
-                        ),
-                        _infoRow(
-                          label: 'Correo',
-                          value: church.email,
-                          icon: Icons.email_outlined,
-                          copyable: true,
-                        ),
-                      ],
-                    ),
-                  ),
-                  _sectionCard(
-                    title: 'Ofrendar',
-                    icon: Icons.volunteer_activism_outlined,
-                    child: Column(
-                      children: [
-                        _infoRow(
-                          label: 'País',
-                          value: church.country,
-                          icon: Icons.public,
-                        ),
-                        _infoRow(
-                          label: 'Titular',
-                          value: church.donationAccountName,
-                          icon: Icons.badge_outlined,
-                        ),
-                        _infoRow(
-                          label: 'Banco',
-                          value: church.donationBankName,
-                          icon: Icons.account_balance_outlined,
-                        ),
-                        _infoRow(
-                          label: 'Cuenta',
-                          value: church.donationAccountNumber,
-                          icon: Icons.numbers,
-                        ),
-                        _infoRow(
-                          label: 'Tipo',
-                          value: church.donationAccountType,
-                          icon: Icons.credit_card_outlined,
-                        ),
-                        _infoRow(
-                          label: 'Instrucciones',
-                          value: church.donationInstructions,
-                          icon: Icons.info_outline,
-                        ),
-                      ],
-                    ),
-                  ),
-                  _sectionCard(
-                    title: 'Horarios de culto',
-                    icon: Icons.schedule_outlined,
-                    child: _buildSchedules(),
-                  ),
-                  _sectionCard(
-                    title: 'Explorar esta iglesia',
-                    icon: Icons.explore_outlined,
-                    child: Column(
-                      children: [
-                        _exploreButton(
-                          title: 'Ver publicaciones y videos',
-                          subtitle: 'Explora el contenido visual y el feed.',
-                          icon: Icons.dynamic_feed_outlined,
-                          onTap: _openChurchFeed,
-                          color: _primary,
-                        ),
-                        const SizedBox(height: 10),
-                        _exploreButton(
-                          title: 'Ver eventos',
-                          subtitle: 'Consulta actividades y reuniones.',
-                          icon: Icons.event_outlined,
-                          onTap: _openChurchEvents,
-                          color: const Color(0xFFEF6C00),
-                        ),
-                        const SizedBox(height: 10),
-                        _exploreButton(
-                          title: 'Ver ubicación',
-                          subtitle: 'Abrir esta iglesia en Google Maps.',
-                          icon: Icons.location_on_outlined,
-                          onTap: _openChurchLocation,
-                          color: const Color(0xFF455A64),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

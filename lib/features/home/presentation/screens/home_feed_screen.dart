@@ -34,6 +34,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   String errorMessage = '';
 
   final ScrollController scrollController = ScrollController();
+  final TextEditingController searchController = TextEditingController();
 
   bool isLoadingMore = false;
   bool hasMore = true;
@@ -43,8 +44,6 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 
   List<Map<String, dynamic>> allItems = [];
   List<Map<String, dynamic>> filteredItems = [];
-
-  final searchController = TextEditingController();
 
   StreamSubscription<String>? _refreshSubscription;
   Timer? _silentRefreshTimer;
@@ -65,6 +64,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     super.initState();
     selectedTab = widget.initialTab;
     selectedChurchId = widget.initialChurchId ?? '';
+
     _loadFeed();
     searchController.addListener(_applyFilters);
     scrollController.addListener(_onScroll);
@@ -90,7 +90,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   void _onScroll() {
     if (!scrollController.hasClients || isLoadingMore || !hasMore) return;
 
-    final threshold = scrollController.position.maxScrollExtent - 300;
+    final threshold = scrollController.position.maxScrollExtent - 250;
     if (scrollController.position.pixels >= threshold) {
       _loadMoreFeed();
     }
@@ -98,7 +98,6 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 
   void _startSilentFeedRefresh() {
     _silentRefreshTimer?.cancel();
-
     _silentRefreshTimer = Timer.periodic(
       const Duration(seconds: 35),
           (_) => _checkForNewFeedItems(),
@@ -130,9 +129,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         return;
       }
 
-      final existingKeys = allItems
-          .map((item) => '${item['type']}_${item['id']}')
-          .toSet();
+      final existingKeys =
+      allItems.map((item) => '${item['type']}_${item['id']}').toSet();
 
       final newItems = latestItems.where((item) {
         final key = '${item['type']}_${item['id']}';
@@ -145,9 +143,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       }
 
       if (newItems.isNotEmpty) {
-        final pendingKeys = pendingNewItems
-            .map((item) => '${item['type']}_${item['id']}')
-            .toSet();
+        final pendingKeys =
+        pendingNewItems.map((item) => '${item['type']}_${item['id']}').toSet();
 
         final uniqueNewItems = newItems.where((item) {
           final key = '${item['type']}_${item['id']}';
@@ -161,7 +158,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         }
       }
     } catch (_) {
-      // silencioso a propósito
+      // refresco silencioso
     } finally {
       isCheckingNewFeedItems = false;
     }
@@ -181,12 +178,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     final uniqueItems = unique.values.toList();
 
     uniqueItems.sort((a, b) {
-      final aDate =
-          DateTime.tryParse(a['created_at']?.toString() ?? '') ??
-              DateTime(2000);
-      final bDate =
-          DateTime.tryParse(b['created_at']?.toString() ?? '') ??
-              DateTime(2000);
+      final aDate = DateTime.tryParse(a['created_at']?.toString() ?? '') ??
+          DateTime(2000);
+      final bDate = DateTime.tryParse(b['created_at']?.toString() ?? '') ??
+          DateTime(2000);
       return bDate.compareTo(aDate);
     });
 
@@ -218,7 +213,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     if (scrollController.hasClients) {
       scrollController.animateTo(
         0,
-        duration: const Duration(milliseconds: 350),
+        duration: const Duration(milliseconds: 320),
         curve: Curves.easeOut,
       );
     }
@@ -322,12 +317,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       final uniqueItems = unique.values.toList();
 
       uniqueItems.sort((a, b) {
-        final aDate =
-            DateTime.tryParse(a['created_at']?.toString() ?? '') ??
-                DateTime(2000);
-        final bDate =
-            DateTime.tryParse(b['created_at']?.toString() ?? '') ??
-                DateTime(2000);
+        final aDate = DateTime.tryParse(a['created_at']?.toString() ?? '') ??
+            DateTime(2000);
+        final bDate = DateTime.tryParse(b['created_at']?.toString() ?? '') ??
+            DateTime(2000);
         return bDate.compareTo(aDate);
       });
 
@@ -371,6 +364,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       final church = item['church'] is Map<String, dynamic>
           ? Map<String, dynamic>.from(item['church'])
           : <String, dynamic>{};
+
       final churchName = church['church_name']?.toString().toLowerCase() ?? '';
       final country = church['country']?.toString() ?? '';
       final city = church['city']?.toString() ?? '';
@@ -403,6 +397,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         matchesTab = type == 'post';
       } else if (selectedTab == 'videos') {
         matchesTab = type == 'video';
+      } else if (selectedTab == 'prayers') {
+        matchesTab = type == 'prayer';
       }
 
       return matchesText &&
@@ -423,8 +419,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 
     final index = allItems.indexWhere(
           (item) =>
-      item['type']?.toString() == type &&
-          item['id']?.toString() == id,
+      item['type']?.toString() == type && item['id']?.toString() == id,
     );
 
     if (index == -1) return;
@@ -440,8 +435,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     setState(() {
       allItems.removeWhere(
             (item) =>
-        item['type']?.toString() == type &&
-            item['id']?.toString() == id,
+        item['type']?.toString() == type && item['id']?.toString() == id,
       );
     });
 
@@ -485,7 +479,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       isScrollControlled: true,
       backgroundColor: const Color(0xFFF7F9FC),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
         return StatefulBuilder(
@@ -502,11 +496,13 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                 isExpanded: true,
                 decoration: InputDecoration(
                   labelText: label,
-                  prefixIcon: Icon(icon),
+                  prefixIcon: Icon(icon, size: 18),
                   filled: true,
                   fillColor: Colors.white,
+                  contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none,
                   ),
                 ),
@@ -526,22 +522,22 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
               padding: EdgeInsets.only(
                 left: 16,
                 right: 16,
-                top: 14,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                top: 12,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 18,
               ),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 46,
-                      height: 5,
+                      width: 42,
+                      height: 4,
                       decoration: BoxDecoration(
                         color: Colors.grey.shade400,
                         borderRadius: BorderRadius.circular(999),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
                     Row(
                       children: [
                         const Icon(Icons.search, color: Color(0xFF0D47A1)),
@@ -550,32 +546,36 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                           child: Text(
                             'Buscar en el feed',
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: 16.5,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                         IconButton(
                           onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.keyboard_arrow_down),
+                          icon: const Icon(Icons.close_rounded),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     TextField(
                       controller: tempSearchController,
                       decoration: InputDecoration(
-                        hintText: 'Nombre de iglesia, contenido, país...',
-                        prefixIcon: const Icon(Icons.search),
+                        hintText: 'Iglesia, contenido, país...',
+                        prefixIcon: const Icon(Icons.search, size: 18),
                         filled: true,
                         fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(14),
                           borderSide: BorderSide.none,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     dropdownFilter(
                       label: 'País',
                       value: tempCountry,
@@ -587,7 +587,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                         });
                       },
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     dropdownFilter(
                       label: 'Ciudad',
                       value: tempCity,
@@ -599,11 +599,11 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                         });
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
                     Row(
                       children: [
                         Expanded(
-                          child: OutlinedButton.icon(
+                          child: OutlinedButton(
                             onPressed: () {
                               tempSearchController.clear();
                               setSheetState(() {
@@ -611,19 +611,18 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                                 tempCity = '';
                               });
                             },
-                            icon: const Icon(Icons.clear_all),
-                            label: const Text('Limpiar'),
                             style: OutlinedButton.styleFrom(
-                              minimumSize: const Size.fromHeight(50),
+                              minimumSize: const Size.fromHeight(44),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(14),
                               ),
                             ),
+                            child: const Text('Limpiar'),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Expanded(
-                          child: ElevatedButton.icon(
+                          child: ElevatedButton(
                             onPressed: () {
                               searchController.text =
                                   tempSearchController.text.trim();
@@ -636,16 +635,15 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                               _applyFilters();
                               Navigator.pop(context);
                             },
-                            icon: const Icon(Icons.check),
-                            label: const Text('Aplicar'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF0D47A1),
                               foregroundColor: Colors.white,
-                              minimumSize: const Size.fromHeight(50),
+                              minimumSize: const Size.fromHeight(44),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(14),
                               ),
                             ),
+                            child: const Text('Aplicar'),
                           ),
                         ),
                       ],
@@ -865,26 +863,50 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
-  Widget _filterChip(String value, String label, IconData icon) {
+  Widget _tinyFilterChip(String value, String label, IconData icon) {
     final isSelected = selectedTab == value;
 
     return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: ChoiceChip(
-        selected: isSelected,
-        onSelected: (_) {
+      padding: const EdgeInsets.only(right: 6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: () {
           setState(() {
             selectedTab = value;
           });
           _applyFilters();
         },
-        label: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 18),
-            const SizedBox(width: 6),
-            Text(label),
-          ],
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF0D47A1) : Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: isSelected
+                  ? const Color(0xFF0D47A1)
+                  : const Color(0xFFD9E2F2),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: isSelected ? Colors.white : const Color(0xFF48607A),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: isSelected ? Colors.white : const Color(0xFF48607A),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -896,14 +918,45 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         selectedCity.isNotEmpty;
 
     return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: ActionChip(
-        onPressed: _openSearchSheet,
-        avatar: Icon(
-          hasFilters ? Icons.tune : Icons.search,
-          size: 18,
+      padding: const EdgeInsets.only(right: 6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: _openSearchSheet,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: hasFilters ? const Color(0xFFEAF4FF) : Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: hasFilters
+                  ? const Color(0xFF0D47A1)
+                  : const Color(0xFFD9E2F2),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                hasFilters ? Icons.tune_rounded : Icons.search_rounded,
+                size: 14,
+                color: hasFilters
+                    ? const Color(0xFF0D47A1)
+                    : const Color(0xFF48607A),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                hasFilters ? 'Filtro' : 'Buscar',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: hasFilters
+                      ? const Color(0xFF0D47A1)
+                      : const Color(0xFF48607A),
+                ),
+              ),
+            ],
+          ),
         ),
-        label: Text(hasFilters ? 'Buscar activo' : 'Buscar'),
       ),
     );
   }
@@ -922,11 +975,11 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     return InkWell(
       onTap: () => _openChurch(church),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(12, 11, 12, 8),
         child: Row(
           children: [
             CircleAvatar(
-              radius: 24,
+              radius: 20,
               backgroundColor: const Color(0xFFEAF4FF),
               backgroundImage:
               logoUrl.isNotEmpty ? NetworkImage(logoUrl) : null,
@@ -934,58 +987,101 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                   ? const Icon(
                 Icons.church,
                 color: Color(0xFF0D47A1),
+                size: 18,
               )
                   : null,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     churchName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 16.5,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 14.3,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  if (location.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      location,
-                      style: const TextStyle(
-                        color: Colors.black54,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                  if (createdAt.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      createdAt.split('T').first,
-                      style: const TextStyle(
-                        color: Colors.black45,
-                        fontSize: 12.5,
-                      ),
-                    ),
-                  ],
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      if (location.isNotEmpty)
+                        Expanded(
+                          child: Text(
+                            location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.black54,
+                              fontSize: 11.5,
+                            ),
+                          ),
+                        ),
+                      if (createdAt.isNotEmpty)
+                        Text(
+                          createdAt.split('T').first,
+                          style: const TextStyle(
+                            color: Colors.black45,
+                            fontSize: 11,
+                          ),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: Colors.black45,
+            ),
           ],
         ),
       ),
     );
   }
 
+  Widget _typeBadge({
+    required String text,
+    required Color bg,
+    required Color fg,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: fg),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(
+              color: fg,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _postCard(Map<String, dynamic> item) {
-    final church = Map<String, dynamic>.from(item['church']);
+    final church = Map<String, dynamic>.from(item['church'] ?? {});
     final title = item['title']?.toString() ?? '';
     final content = item['content']?.toString() ?? '';
     final createdAt = item['created_at']?.toString() ?? '';
     final likesCount = item['likes_count'] ?? 0;
-    final likedByMe = item['liked_by_me'] ?? false;
+    final likedByMe = item['liked_by_me'] == true;
 
     final images = List<Map<String, dynamic>>.from(item['images'] ?? []);
     final urls = images
@@ -993,78 +1089,49 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         .where((e) => e.isNotEmpty)
         .toList();
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x11000000),
-            blurRadius: 14,
-            offset: Offset(0, 5),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
+    return _compactCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _churchHeader(church, createdAt),
           if (urls.isNotEmpty) PostImagesWidget(imageUrls: urls),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEAF4FF),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: const Text(
-                    'Publicación',
-                    style: TextStyle(
-                      color: Color(0xFF0D47A1),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12.5,
-                    ),
-                  ),
+                _typeBadge(
+                  text: 'Publicación',
+                  bg: const Color(0xFFEAF4FF),
+                  fg: const Color(0xFF0D47A1),
+                  icon: Icons.article_outlined,
                 ),
                 if (title.isNotEmpty) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Text(
                     title,
                     style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
                     ),
                   ),
                 ],
                 if (content.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    content,
-                    style: const TextStyle(
-                      color: Colors.black87,
-                      height: 1.45,
-                    ),
+                  const SizedBox(height: 7),
+                  ExpandableText(
+                    text: content,
+                    trimLines: 4,
                   ),
                 ],
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => _togglePostLike(item['id'].toString()),
-                      icon: Icon(
-                        likedByMe ? Icons.favorite : Icons.favorite_border,
-                        color: likedByMe ? Colors.red : Colors.black54,
-                      ),
-                    ),
-                    Text('$likesCount Me gusta'),
-                  ],
+                const SizedBox(height: 8),
+                _socialRow(
+                  active: likedByMe,
+                  activeIcon: Icons.favorite,
+                  inactiveIcon: Icons.favorite_border,
+                  activeColor: Colors.red,
+                  label: '$likesCount',
+                  onTap: () => _togglePostLike(item['id'].toString()),
                 ),
               ],
             ),
@@ -1075,28 +1142,15 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   }
 
   Widget _videoCard(Map<String, dynamic> item) {
-    final church = Map<String, dynamic>.from(item['church']);
+    final church = Map<String, dynamic>.from(item['church'] ?? {});
     final title = item['title']?.toString() ?? '';
     final description = item['content']?.toString() ?? '';
     final thumbnailUrl = item['thumbnail_url']?.toString() ?? '';
     final createdAt = item['created_at']?.toString() ?? '';
     final likesCount = item['likes_count'] ?? 0;
-    final likedByMe = item['liked_by_me'] ?? false;
+    final likedByMe = item['liked_by_me'] == true;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x11000000),
-            blurRadius: 14,
-            offset: Offset(0, 5),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
+    return _compactCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1118,85 +1172,71 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
               alignment: Alignment.center,
               children: [
                 thumbnailUrl.isNotEmpty
-                    ? Image.network(
-                  thumbnailUrl,
-                  width: double.infinity,
-                  height: 220,
-                  fit: BoxFit.cover,
+                    ? ClipRRect(
+                  borderRadius: BorderRadius.circular(0),
+                  child: Image.network(
+                    thumbnailUrl,
+                    width: double.infinity,
+                    height: 205,
+                    fit: BoxFit.cover,
+                  ),
                 )
                     : Container(
                   width: double.infinity,
-                  height: 220,
+                  height: 205,
                   color: Colors.grey.shade300,
                 ),
                 Container(
-                  width: 64,
-                  height: 64,
+                  width: 54,
+                  height: 54,
                   decoration: BoxDecoration(
-                    color: Colors.black45,
+                    color: Colors.black.withOpacity(0.45),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: const Icon(
-                    Icons.play_arrow,
+                    Icons.play_arrow_rounded,
                     color: Colors.white,
-                    size: 36,
+                    size: 32,
                   ),
                 ),
               ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            padding: const EdgeInsets.fromLTRB(12, 9, 12, 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF3E0),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: const Text(
-                    'Video',
-                    style: TextStyle(
-                      color: Colors.deepOrange,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12.5,
-                    ),
-                  ),
+                _typeBadge(
+                  text: 'Video',
+                  bg: const Color(0xFFFFF3E0),
+                  fg: Colors.deepOrange,
+                  icon: Icons.ondemand_video_outlined,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    height: 1.3,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w800,
+                    height: 1.2,
                   ),
                 ),
                 if (description.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    description,
-                    style: const TextStyle(
-                      color: Colors.black87,
-                      height: 1.45,
-                    ),
+                  const SizedBox(height: 7),
+                  ExpandableText(
+                    text: description,
+                    trimLines: 3,
                   ),
                 ],
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => _toggleVideoLike(item['id'].toString()),
-                      icon: Icon(
-                        likedByMe ? Icons.favorite : Icons.favorite_border,
-                        color: likedByMe ? Colors.red : Colors.black54,
-                      ),
-                    ),
-                    Text('$likesCount Me gusta'),
-                  ],
+                const SizedBox(height: 8),
+                _socialRow(
+                  active: likedByMe,
+                  activeIcon: Icons.favorite,
+                  inactiveIcon: Icons.favorite_border,
+                  activeColor: Colors.red,
+                  label: '$likesCount',
+                  onTap: () => _toggleVideoLike(item['id'].toString()),
                 ),
               ],
             ),
@@ -1311,7 +1351,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                     '🙏 $userSupportCount personas orando',
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
-                      fontSize: 12.5,
+                      fontSize: 11,
                     ),
                   ),
                 ),
@@ -1328,7 +1368,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                     '⛪ $churchSupportCount iglesias unidas',
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
-                      fontSize: 12.5,
+                      fontSize: 11,
                     ),
                   ),
                 ),
@@ -1346,14 +1386,14 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                       '$myChurchRequestCount miembro${myChurchRequestCount == 1 ? '' : 's'} pidió${myChurchRequestCount == 1 ? '' : 'eron'} a su iglesia orar',
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
-                        fontSize: 12,
+                        fontSize: 10,
                         color: Color(0xFF0D47A1),
                       ),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             if (isChurchAccount)
               SizedBox(
                 width: double.infinity,
@@ -1390,6 +1430,9 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                       ),
                       label: Text(
                         supportedByMe ? 'Estoy orando' : 'Orar',
+                        style: const TextStyle(
+                          fontSize: 11,
+                        ),
                       ),
                       style: OutlinedButton.styleFrom(
                         shape: RoundedRectangleBorder(
@@ -1407,8 +1450,11 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                         icon: const Icon(Icons.groups_2_outlined),
                         label: Text(
                           requestedMyChurch
-                              ? 'Pedida a mi iglesia'
+                              ? 'Solicitud enviada'
                               : 'Pedir a mi iglesia',
+                          style: const TextStyle(
+                            fontSize: 11,
+                          ),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: requestedMyChurch
@@ -1430,180 +1476,322 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
-  Widget _feedItem(Map<String, dynamic> item) {
-    final type = item['type']?.toString() ?? 'post';
-
-    if (type == 'video') {
-      return _videoCard(item);
-    }
-
-    if (type == 'prayer') {
-      return _prayerCard(item);
-    }
-
-    return _postCard(item);
+  Widget _tinyActionButton({
+    required IconData icon,
+    required String label,
+    required bool active,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: active ? color.withOpacity(0.10) : const Color(0xFFF5F7FB),
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: active ? color : Colors.black54,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.4,
+                    fontWeight: FontWeight.w700,
+                    color: active ? color : Colors.black87,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : hasError
-          ? NetworkErrorView(
-        message: errorMessage,
-        onRetry: () => _loadFeed(),
-      )
-          : Column(
-        children: [
-          if (selectedChurchId.isNotEmpty &&
-              widget.initialChurchName != null &&
-              widget.initialChurchName!.trim().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+  Widget _socialRow({
+    required bool active,
+    required IconData activeIcon,
+    required IconData inactiveIcon,
+    required Color activeColor,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Row(
+      children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+            child: Row(
+              children: [
+                Icon(
+                  active ? activeIcon : inactiveIcon,
+                  size: 20,
+                  color: active ? activeColor : Colors.black54,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _compactCard({required Widget child}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
+        border: Border.all(color: const Color(0xFFF0F2F6)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+  }
+
+  Widget _feedItem(Map<String, dynamic> item) {
+    final type = item['type']?.toString() ?? '';
+
+    if (type == 'post') return _postCard(item);
+    if (type == 'video') return _videoCard(item);
+    if (type == 'prayer') return _prayerCard(item);
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildTopInfo() {
+    return Column(
+      children: [
+        if (widget.initialChurchId != null && widget.initialChurchId!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAF4FF),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.church,
+                    color: Color(0xFF0D47A1),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Mostrando contenido de ${widget.initialChurchName}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ),
+                  if (widget.allowResetToGeneral)
+                    TextButton(
+                      onPressed: _resetToGeneralFeed,
+                      child: const Text('Ver todo'),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        if (pendingNewItems.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap: _insertPendingItemsIntoFeed,
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(14),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
+                  color: const Color(0xFF0D47A1),
+                  borderRadius: BorderRadius.circular(999),
                 ),
                 child: Row(
                   children: [
                     const Icon(
-                      Icons.church,
-                      color: Color(0xFF0D47A1),
+                      Icons.fiber_new_rounded,
+                      color: Colors.white,
+                      size: 17,
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 7),
                     Expanded(
                       child: Text(
-                        'Mostrando contenido de ${widget.initialChurchName}',
+                        pendingNewItems.length == 1
+                            ? 'Hay 1 publicación nueva'
+                            : 'Hay ${pendingNewItems.length} publicaciones nuevas',
                         style: const TextStyle(
+                          color: Colors.white,
                           fontWeight: FontWeight.w700,
-                          fontSize: 13.5,
+                          fontSize: 12.2,
                         ),
                       ),
                     ),
-                    if (widget.allowResetToGeneral)
-                      TextButton(
-                        onPressed: _resetToGeneralFeed,
-                        child: const Text('Ver todo'),
-                      ),
+                    const Icon(
+                      Icons.arrow_upward_rounded,
+                      color: Colors.white,
+                      size: 17,
+                    ),
                   ],
                 ),
               ),
             ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _openCreatePrayerRequest,
-                icon: const Icon(Icons.volunteer_activism),
-                label: const Text('Pedir oración'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2E7D32),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              ),
-            ),
           ),
-          if (pendingNewItems.isNotEmpty)
+      ],
+    );
+  }
+
+  Widget _buildFilters() {
+    return SizedBox(
+      height: 34,
+      child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        scrollDirection: Axis.horizontal,
+        children: [
+          _tinyFilterChip('all', 'Todo', Icons.apps_rounded),
+          _tinyFilterChip('my_church', 'Mi iglesia', Icons.favorite_outline),
+          _tinyFilterChip('posts', 'Posts', Icons.article_outlined),
+          _tinyFilterChip('videos', 'Videos', Icons.play_circle_outline),
+          _tinyFilterChip('prayers', 'Oración', Icons.volunteer_activism_outlined),
+          _searchChip(),
+          if (searchController.text.trim().isNotEmpty ||
+              selectedCountry.isNotEmpty ||
+              selectedCity.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              padding: const EdgeInsets.only(left: 2),
               child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: _insertPendingItemsIntoFeed,
+                borderRadius: BorderRadius.circular(999),
+                onTap: _clearFilters,
                 child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0D47A1),
-                    borderRadius: BorderRadius.circular(16),
+                    color: const Color(0xFFFFF1F0),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: const Color(0xFFFFD5CF)),
                   ),
-                  child: Row(
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
-                        Icons.fiber_new,
-                        color: Colors.white,
+                      Icon(
+                        Icons.close_rounded,
+                        size: 14,
+                        color: Colors.redAccent,
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          pendingNewItems.length == 1
-                              ? 'Hay 1 publicación nueva'
-                              : 'Hay ${pendingNewItems.length} publicaciones nuevas',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
+                      SizedBox(width: 4),
+                      Text(
+                        'Limpiar',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.redAccent,
                         ),
-                      ),
-                      const Icon(
-                        Icons.arrow_upward,
-                        color: Colors.white,
                       ),
                     ],
                   ),
                 ),
               ),
             ),
-          SizedBox(
-            height: 48,
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              children: [
-                _filterChip('all', 'Todo', Icons.dashboard_outlined),
-                _filterChip(
-                  'my_church',
-                  'Mi iglesia',
-                  Icons.favorite_outline,
-                ),
-                _filterChip(
-                  'posts',
-                  'Publicaciones',
-                  Icons.photo_library_outlined,
-                ),
-                _filterChip(
-                  'videos',
-                  'Videos',
-                  Icons.ondemand_video_outlined,
-                ),
-                _searchChip(),
-              ],
-            ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (hasError) {
+      return NetworkErrorView(
+        message: errorMessage,
+        onRetry: _loadFeed,
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FB),
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'feed_prayer_fab',
+        onPressed: _openCreatePrayerRequest,
+        backgroundColor: const Color(0xFF2E7D32),
+        foregroundColor: Colors.white,
+        elevation: 3,
+        icon: const Icon(Icons.volunteer_activism_rounded, size: 20),
+        label: const Text(
+          'Pedir oración',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
           ),
-          const SizedBox(height: 8),
+        ),
+      ),
+      body: Column(
+        children: [
+          _buildTopInfo(),
+          const SizedBox(height: 2),
+          _buildFilters(),
+          const SizedBox(height: 6),
           Expanded(
             child: filteredItems.isEmpty
-                ? const Center(
-              child: Text(
-                'No hay resultados para esos filtros.',
-                textAlign: TextAlign.center,
+                ? RefreshIndicator(
+              onRefresh: () => _loadFeed(),
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(12, 2, 12, 90),
+                children: const [
+                  SizedBox(height: 140),
+                  Center(
+                    child: Text(
+                      'No hay resultados para esos filtros.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
               ),
             )
                 : RefreshIndicator(
               onRefresh: () => _loadFeed(),
               child: ListView.builder(
                 controller: scrollController,
-                padding:
-                const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                itemCount:
-                filteredItems.length + (isLoadingMore ? 1 : 0),
+                padding: const EdgeInsets.fromLTRB(12, 2, 12, 90),
+                itemCount: filteredItems.length + (isLoadingMore ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index >= filteredItems.length) {
                     return const Padding(
-                      padding:
-                      EdgeInsets.symmetric(vertical: 18),
+                      padding: EdgeInsets.symmetric(vertical: 18),
                       child: Center(
                         child: CircularProgressIndicator(),
                       ),
@@ -1617,6 +1805,79 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class ExpandableText extends StatefulWidget {
+  final String text;
+  final int trimLines;
+
+  const ExpandableText({
+    super.key,
+    required this.text,
+    this.trimLines = 4,
+  });
+
+  @override
+  State<ExpandableText> createState() => _ExpandableTextState();
+}
+
+class _ExpandableTextState extends State<ExpandableText> {
+  bool expanded = false;
+  bool canExpand = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = const TextStyle(
+      color: Colors.black87,
+      fontSize: 13.4,
+      height: 1.42,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final textSpan = TextSpan(text: widget.text, style: style);
+
+        final textPainter = TextPainter(
+          text: textSpan,
+          maxLines: widget.trimLines,
+          textDirection: TextDirection.ltr,
+        )..layout(maxWidth: constraints.maxWidth);
+
+        canExpand = textPainter.didExceedMaxLines;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.text,
+              style: style,
+              maxLines: expanded ? null : widget.trimLines,
+              overflow: expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+            ),
+            if (canExpand)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      expanded = !expanded;
+                    });
+                  },
+                  child: Text(
+                    expanded ? 'Ver menos' : 'Ver más',
+                    style: const TextStyle(
+                      color: Color(0xFF0D47A1),
+                      fontSize: 12.3,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

@@ -42,18 +42,51 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
   @override
   void initState() {
     super.initState();
+    searchController.addListener(_onSearchChanged);
     _loadData();
-    searchController.addListener(_applyFilters);
   }
 
   @override
   void dispose() {
+    searchController.removeListener(_onSearchChanged);
     searchController.dispose();
     super.dispose();
   }
 
+  void _onSearchChanged() {
+    if (!mounted) return;
+    setState(() {
+      filteredChurches = _getFilteredChurches();
+    });
+  }
+
+  List<ChurchModel> _getFilteredChurches() {
+    final query = searchController.text.trim().toLowerCase();
+
+    return allChurches.where((church) {
+      final matchesQuery = query.isEmpty ||
+          church.churchName.toLowerCase().contains(query) ||
+          church.city.toLowerCase().contains(query) ||
+          church.country.toLowerCase().contains(query) ||
+          church.sector.toLowerCase().contains(query) ||
+          church.pastorName.toLowerCase().contains(query);
+
+      final matchesCountry =
+          selectedCountry.isEmpty || church.country == selectedCountry;
+
+      final matchesCity =
+          selectedCity.isEmpty || church.city == selectedCity;
+
+      final matchesSector =
+          selectedSector.isEmpty || church.sector == selectedSector;
+
+      return matchesQuery && matchesCountry && matchesCity && matchesSector;
+    }).toList();
+  }
+
   Future<void> _loadData() async {
     try {
+      if (!mounted) return;
       setState(() {
         isLoading = true;
         hasError = false;
@@ -71,16 +104,16 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
 
       if (!mounted) return;
 
+      allChurches = churches;
+      countries = countriesResponse;
+      cities = citiesResponse;
+      sectors = sectorsResponse;
+
       setState(() {
-        allChurches = churches;
-        countries = countriesResponse;
-        cities = citiesResponse;
-        sectors = sectorsResponse;
+        filteredChurches = _getFilteredChurches();
         isLoading = false;
         hasError = false;
       });
-
-      _applyCurrentFilters();
     } catch (e) {
       if (!mounted) return;
 
@@ -95,11 +128,12 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
 
   Future<void> _toggleNearMe() async {
     if (nearMeOnly) {
+      if (!mounted) return;
       setState(() {
         nearMeOnly = false;
         selectedCountry = '';
         selectedCity = '';
-        _applyFilters();
+        filteredChurches = _getFilteredChurches();
       });
       return;
     }
@@ -113,7 +147,7 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
         .eq('id', user.id)
         .maybeSingle();
 
-    if (profile == null) return;
+    if (!mounted || profile == null) return;
 
     final myCountry = profile['country']?.toString() ?? '';
     final myCity = profile['city']?.toString() ?? '';
@@ -123,66 +157,36 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
       selectedCountry = myCountry;
       selectedCity = myCity;
       searchController.clear();
-    });
-
-    _applyFilters();
-  }
-
-  void _applyCurrentFilters() {
-    _applyFilters();
-  }
-
-  void _applyFilters() {
-    final query = searchController.text.trim().toLowerCase();
-
-    final results = allChurches.where((church) {
-      final matchesQuery = query.isEmpty ||
-          church.churchName.toLowerCase().contains(query) ||
-          church.city.toLowerCase().contains(query) ||
-          church.country.toLowerCase().contains(query) ||
-          church.sector.toLowerCase().contains(query) ||
-          church.pastorName.toLowerCase().contains(query);
-
-      final matchesCountry =
-          selectedCountry.isEmpty || church.country == selectedCountry;
-
-      final matchesCity = selectedCity.isEmpty || church.city == selectedCity;
-
-      final matchesSector =
-          selectedSector.isEmpty || church.sector == selectedSector;
-
-      return matchesQuery && matchesCountry && matchesCity && matchesSector;
-    }).toList();
-
-    setState(() {
-      filteredChurches = results;
+      filteredChurches = _getFilteredChurches();
     });
   }
 
   void _clearFilters() {
     searchController.clear();
+
+    if (!mounted) return;
     setState(() {
       nearMeOnly = false;
       selectedCountry = '';
       selectedCity = '';
       selectedSector = '';
+      filteredChurches = _getFilteredChurches();
     });
-    _applyCurrentFilters();
   }
 
   Future<void> _openSearchSheet() async {
-    final tempSearchController =
-    TextEditingController(text: searchController.text);
-
-    String tempCountry = selectedCountry;
-    String tempCity = selectedCity;
-    String tempSector = selectedSector;
-
-    await showModalBottomSheet(
+    final result = await showModalBottomSheet<_SearchSheetResult>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
+        final tempSearchController =
+        TextEditingController(text: searchController.text);
+
+        String tempCountry = selectedCountry;
+        String tempCity = selectedCity;
+        String tempSector = selectedSector;
+
         return StatefulBuilder(
           builder: (context, setSheetState) {
             Widget dropdownFilter({
@@ -193,7 +197,7 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
               required IconData icon,
             }) {
               return DropdownButtonFormField<String>(
-                initialValue: value.isEmpty ? null : value,
+                value: value.isEmpty ? null : value,
                 isExpanded: true,
                 decoration: InputDecoration(
                   labelText: label,
@@ -304,7 +308,8 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
                             hintStyle: const TextStyle(
                               color: _textSoft,
                             ),
-                            prefixIcon: const Icon(Icons.search, color: _primary),
+                            prefixIcon:
+                            const Icon(Icons.search, color: _primary),
                             filled: true,
                             fillColor: Colors.white,
                             contentPadding: const EdgeInsets.symmetric(
@@ -317,8 +322,10 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(18),
-                              borderSide:
-                              const BorderSide(color: _primary, width: 1.2),
+                              borderSide: const BorderSide(
+                                color: _primary,
+                                width: 1.2,
+                              ),
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(18),
@@ -394,26 +401,14 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
                             Expanded(
                               child: ElevatedButton.icon(
                                 onPressed: () {
-                                  final newSearch = tempSearchController.text.trim();
-                                  final newCountry = tempCountry;
-                                  final newCity = tempCity;
-                                  final newSector = tempSector;
-
-                                  Navigator.pop(sheetContext);
-
-                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                    if (!mounted) return;
-
-                                    searchController.text = newSearch;
-
-                                    setState(() {
-                                      selectedCountry = newCountry;
-                                      selectedCity = newCity;
-                                      selectedSector = newSector;
-                                    });
-
-                                    _applyFilters();
-                                  });
+                                  Navigator.of(sheetContext).pop(
+                                    _SearchSheetResult(
+                                      search: tempSearchController.text.trim(),
+                                      country: tempCountry,
+                                      city: tempCity,
+                                      sector: tempSector,
+                                    ),
+                                  );
                                 },
                                 icon: const Icon(Icons.check),
                                 label: const Text(
@@ -443,82 +438,58 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
       },
     );
 
-    tempSearchController.dispose();
+    if (!mounted || result == null) return;
+
+    setState(() {
+      nearMeOnly = false;
+      selectedCountry = result.country;
+      selectedCity = result.city;
+      selectedSector = result.sector;
+      searchController.text = result.search;
+      filteredChurches = _getFilteredChurches();
+    });
   }
 
   Widget _heroCard() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 2, 16, 10),
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 10),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [_primary, _primaryLight],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF2962FF),
+            Color(0xFF0D47A1),
+          ],
         ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x220D47A1),
-            blurRadius: 14,
-            offset: Offset(0, 5),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
         children: [
+          const Icon(Icons.church, color: Colors.white, size: 20),
+          const SizedBox(width: 10),
           const Expanded(
             child: Text(
               'Iglesias',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 19,
-                fontWeight: FontWeight.w800,
-                height: 1.1,
+                fontSize: 16.5,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.16),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
-              '${allChurches.length} total',
+              '${allChurches.length}',
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 12.2,
-                fontWeight: FontWeight.w700,
+                fontSize: 12.5,
+                fontWeight: FontWeight.bold,
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _heroChip({
-    required IconData icon,
-    required String text,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: Colors.white),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12.3,
-              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -670,7 +641,8 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
                 width: double.infinity,
                 height: 150,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => _coverPlaceholder(),
+                errorBuilder: (context, error, stackTrace) =>
+                    _coverPlaceholder(),
               )
             else
               _coverPlaceholder(),
@@ -951,9 +923,21 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
         message: errorMessage,
         onRetry: _loadData,
       )
-          : SafeArea(
-        child: _content(),
-      ),
+          : _content(),
     );
   }
+}
+
+class _SearchSheetResult {
+  final String search;
+  final String country;
+  final String city;
+  final String sector;
+
+  const _SearchSheetResult({
+    required this.search,
+    required this.country,
+    required this.city,
+    required this.sector,
+  });
 }
