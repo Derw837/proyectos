@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:red_cristiana/core/utils/app_error_helper.dart';
 import 'package:red_cristiana/core/audio/audio_player_service.dart';
 import 'package:red_cristiana/features/radios/data/radio_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:red_cristiana/core/utils/network_status_helper.dart';
+import 'package:red_cristiana/core/widgets/network_error_view.dart';
 
 class RadiosScreen extends StatefulWidget {
   const RadiosScreen({super.key});
@@ -24,6 +27,9 @@ class _RadiosScreenState extends State<RadiosScreen> {
   Timer? _playCountTimer;
   String? _countingRadioId;
   final Set<String> _alreadyCountedThisSession = {};
+  String? _radioErrorMessage;
+  bool _isRetryingRadio = false;
+  String? _loadErrorMessage;
 
   @override
   void initState() {
@@ -31,13 +37,39 @@ class _RadiosScreenState extends State<RadiosScreen> {
     _loadRadios();
     searchController.addListener(_applyFilters);
     AudioPlayerService.init();
+    AudioPlayerService.lastErrorNotifier.addListener(_handleRadioPlayerError);
+    AudioPlayerService.isPlayingNotifier.addListener(_handleRadioPlayingChanged);
   }
 
   @override
   void dispose() {
     _playCountTimer?.cancel();
+    AudioPlayerService.lastErrorNotifier.removeListener(_handleRadioPlayerError);
+    AudioPlayerService.isPlayingNotifier.removeListener(_handleRadioPlayingChanged);
     searchController.dispose();
     super.dispose();
+  }
+
+  void _handleRadioPlayerError() {
+    if (!mounted) return;
+
+    final value = AudioPlayerService.lastErrorNotifier.value;
+    if (value != null && value.trim().isNotEmpty) {
+      setState(() {
+        _radioErrorMessage = value;
+        expandedRadioId = AudioPlayerService.currentRadioId;
+      });
+    }
+  }
+
+  void _handleRadioPlayingChanged() {
+    if (!mounted) return;
+
+    if (AudioPlayerService.isPlaying) {
+      setState(() {
+        _radioErrorMessage = null;
+      });
+    }
   }
 
   Future<void> _loadRadios() async {
@@ -49,15 +81,19 @@ class _RadiosScreenState extends State<RadiosScreen> {
         allRadios = data;
         filteredRadios = data;
         isLoading = false;
+        _loadErrorMessage = null;
       });
       _applyFilters();
     } catch (e) {
-      if (!mounted) return;
-      setState(() => isLoading = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error cargando radios: $e')),
+      final message = await AppErrorHelper.friendlyMessage(
+        e,
+        fallback: 'No se pudieron cargar las radios en este momento.',
       );
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        _loadErrorMessage = message;
+      });
     }
   }
 
@@ -113,8 +149,12 @@ class _RadiosScreenState extends State<RadiosScreen> {
       await _loadRadios();
     } catch (e) {
       if (!mounted) return;
+      final message = await AppErrorHelper.friendlyMessage(
+        e,
+        fallback: 'No se pudo actualizar tu me gusta.',
+      );
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error en Me gusta: $e')),
+        SnackBar(content: Text(message)),
       );
     }
   }
@@ -158,9 +198,20 @@ class _RadiosScreenState extends State<RadiosScreen> {
     (radio['name'] ?? radio['station_name'] ?? radio['title'] ?? 'Radio')
         .toString();
 
+    final logoUrl = (radio['logo_url'] ??
+        radio['image_url'] ??
+        radio['logo'] ??
+        radio['station_logo'] ??
+        '')
+        .toString();
+
     if (radioId.isEmpty || streamUrl.isEmpty) return;
 
     try {
+      setState(() {
+        _radioErrorMessage = null;
+      });
+
       final isSameRadio = AudioPlayerService.currentUrl == streamUrl;
 
       if (isSameRadio) {
@@ -181,6 +232,7 @@ class _RadiosScreenState extends State<RadiosScreen> {
         radioId: radioId,
         url: streamUrl,
         title: radioName,
+        imageUrl: logoUrl.isEmpty ? null : logoUrl,
       );
 
       _schedulePlayCount(radioId);
@@ -188,13 +240,65 @@ class _RadiosScreenState extends State<RadiosScreen> {
       if (!mounted) return;
       setState(() {
         expandedRadioId = radioId;
+        _radioErrorMessage = null;
       });
     } catch (e) {
       _cancelPlayCount();
+
+      final friendlyMessage =
+          AudioPlayerService.lastErrorNotifier.value ??
+              await NetworkStatusHelper.playerMessageForError(e);
+
       if (!mounted) return;
+      setState(() {
+        expandedRadioId = radioId;
+        _radioErrorMessage = friendlyMessage;
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error reproduciendo radio: $e')),
+        SnackBar(content: Text(friendlyMessage)),
       );
+    }
+  }
+
+  Future<void> _retryCurrentRadio() async {
+    if (_isRetryingRadio) return;
+
+    try {
+      setState(() {
+        _isRetryingRadio = true;
+        _radioErrorMessage = null;
+      });
+
+      await AudioPlayerService.retryCurrentRadio();
+
+      final currentRadioId = AudioPlayerService.currentRadioId;
+      if (currentRadioId != null) {
+        _schedulePlayCount(currentRadioId);
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _radioErrorMessage = null;
+      });
+    } catch (e) {
+      final friendlyMessage =
+          AudioPlayerService.lastErrorNotifier.value ??
+              await NetworkStatusHelper.playerMessageForError(e);
+
+      if (!mounted) return;
+      setState(() {
+        _radioErrorMessage = friendlyMessage;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyMessage)),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isRetryingRadio = false;
+      });
     }
   }
 
@@ -462,6 +566,71 @@ class _RadiosScreenState extends State<RadiosScreen> {
                     ),
                   ],
                   const SizedBox(height: 8),
+                  if (isExpanded &&
+                      _radioErrorMessage != null &&
+                      AudioPlayerService.currentRadioId == radioId) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3E0),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFFFCC80)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.wifi_tethering_error_rounded,
+                                color: Color(0xFFE65100),
+                                size: 20,
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'No se pudo reproducir la radio',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFE65100),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _radioErrorMessage!,
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              height: 1.4,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            onPressed: _isRetryingRadio ? null : _retryCurrentRadio,
+                            icon: _isRetryingRadio
+                                ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                                : const Icon(Icons.refresh),
+                            label: Text(
+                              _isRetryingRadio ? 'Reintentando...' : 'Volver a intentarlo',
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2E7D32),
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   Row(
                     children: [
                       Expanded(
@@ -510,7 +679,12 @@ class _RadiosScreenState extends State<RadiosScreen> {
           backgroundColor: const Color(0xFFF7F9FC),
           body: isLoading
               ? const Center(child: CircularProgressIndicator())
-              : Column(
+              : _loadErrorMessage != null
+                  ? NetworkErrorView(
+                      message: _loadErrorMessage!,
+                      onRetry: _loadRadios,
+                    )
+                  : Column(
             children: [
               _miniHeader(),
               Padding(

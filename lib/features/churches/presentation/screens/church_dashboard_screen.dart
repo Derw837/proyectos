@@ -524,51 +524,14 @@ class _ChurchDashboardScreenState extends State<ChurchDashboardScreen> {
           ),
           const SizedBox(height: 20),
           _sectionTitle(
-            'Accesos rápidos',
-            'Lo más usado para gestionar la iglesia de forma ágil.',
-          ),
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 1.05,
-            children: [
-              _quickAction(
-                title: 'Publicaciones',
-                subtitle: 'Ver todo el feed',
-                icon: Icons.public,
-                color: _primary,
-                screen: const ChurchFeedScreen(),
-              ),
-              _quickAction(
-                title: 'Miembros',
-                subtitle: 'Listado y búsqueda',
-                icon: Icons.groups_outlined,
-                color: const Color(0xFF2E7D32),
-                screen: const ChurchMembersScreen(),
-              ),
-              _quickAction(
-                title: 'Notificar',
-                subtitle: 'Avisar a miembros',
-                icon: Icons.notifications_active_outlined,
-                color: const Color(0xFF6A1B9A),
-                screen: const ChurchNotifyMembersScreen(),
-              ),
-              _quickAction(
-                title: 'Petición  de Oración',
-                subtitle: 'Peticiones recibidas',
-                icon: Icons.volunteer_activism_outlined,
-                color: const Color(0xFFEF6C00),
-                screen: const ChurchPrayerRequestsScreen(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          _sectionTitle(
             'Administración',
             'Actualiza y organiza toda la información de tu iglesia.',
+          ),
+          _optionCard(
+            title: 'Peticiones de oración',
+            subtitle: 'Revisa y responde las peticiones recibidas.',
+            icon: Icons.volunteer_activism_outlined,
+            screen: const ChurchPrayerRequestsScreen(),
           ),
           _optionCard(
             title: 'Editar perfil de iglesia',

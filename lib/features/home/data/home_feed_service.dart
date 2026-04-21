@@ -5,7 +5,8 @@ class HomeFeedService {
   static final _client = Supabase.instance.client;
 
   static Future<Map<String, dynamic>> getGeneralFeedPage({
-    required int offset,
+    int? offset,
+    String? olderThan,
     int limit = 10,
   }) async {
     final user = _client.auth.currentUser;
@@ -22,25 +23,51 @@ class HomeFeedService {
       myChurchId = myMembership?['church_id']?.toString();
     }
 
-    final postsResponse = await _client
+    // Traemos un poco más de cada fuente para luego mezclar y quedarnos
+    // con los más recientes sin romper la experiencia del feed.
+    final fetchSize = limit * 2;
+    final safeOffset = offset ?? 0;
+
+    final postsBaseQuery = _client
         .from('church_posts')
         .select('id, church_id, title, content, created_at')
-        .eq('is_active', true)
-        .order('created_at', ascending: false)
-        .range(offset, offset + limit - 1);
+        .eq('is_active', true);
 
-    final videosResponse = await _client
+    final videosBaseQuery = _client
         .from('church_profile_videos')
         .select(
       'id, church_id, title, description, video_url, thumbnail_url, created_at',
     )
-        .eq('is_active', true)
+        .eq('is_active', true);
+
+    final postsResponse = olderThan != null && olderThan.isNotEmpty
+        ? await postsBaseQuery
+        .lt('created_at', olderThan)
         .order('created_at', ascending: false)
-        .range(offset, offset + limit - 1);
+        .limit(fetchSize)
+        : await postsBaseQuery
+        .order('created_at', ascending: false)
+        .range(safeOffset, safeOffset + fetchSize - 1);
+
+    final videosResponse = olderThan != null && olderThan.isNotEmpty
+        ? await videosBaseQuery
+        .lt('created_at', olderThan)
+        .order('created_at', ascending: false)
+        .limit(fetchSize)
+        : await videosBaseQuery
+        .order('created_at', ascending: false)
+        .range(safeOffset, safeOffset + fetchSize - 1);
 
     final rawPosts = List<Map<String, dynamic>>.from(postsResponse);
     final rawVideos = List<Map<String, dynamic>>.from(videosResponse);
-    final prayerRequests = await PrayerService.getPrayerRequests();
+
+    // Importante:
+    // Si PrayerService ya tiene paginación por fecha, la usamos.
+    // Si todavía no la has agregado, te dejo abajo el método exacto que debes poner.
+    final prayerRequests = await PrayerService.getPrayerRequestsPage(
+      olderThan: olderThan,
+      limit: fetchSize,
+    );
 
     final churchIds = <String>{
       ...rawPosts
@@ -87,6 +114,28 @@ class HomeFeedService {
         final id = church['id']?.toString() ?? '';
         if (id.isNotEmpty) {
           churchesMap[id] = church;
+        }
+      }
+    }
+
+    final originChurchIds = prayerRequests
+        .map((e) => e['origin_church_id']?.toString() ?? '')
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+
+    final originChurchesMap = <String, Map<String, dynamic>>{};
+    if (originChurchIds.isNotEmpty) {
+      final churchesResponse = await _client
+          .from('churches')
+          .select('id, church_name')
+          .inFilter('id', originChurchIds);
+
+      for (final raw in churchesResponse) {
+        final church = Map<String, dynamic>.from(raw);
+        final id = church['id']?.toString() ?? '';
+        if (id.isNotEmpty) {
+          originChurchesMap[id] = church;
         }
       }
     }
@@ -207,6 +256,11 @@ class HomeFeedService {
       final userName =
       (fullName != null && fullName.isNotEmpty) ? fullName : 'Un usuario';
 
+      final originChurchId = prayer['origin_church_id']?.toString() ?? '';
+      final originChurch =
+          originChurchesMap[originChurchId] ?? <String, dynamic>{};
+      final churchName = originChurch['church_name']?.toString().trim() ?? '';
+
       feedItems.add({
         'type': 'prayer',
         'id': prayer['id'],
@@ -214,6 +268,9 @@ class HomeFeedService {
         'user_id': prayer['user_id'],
         'created_by_me': user != null && prayer['user_id'] == user.id,
         'user_name': userName,
+        'church_name': churchName,
+        'author_type': prayer['author_type']?.toString() ?? 'user',
+        'message_text': prayer['message_text']?.toString() ?? '',
         'category': prayer['category'],
         'is_for_me': prayer['is_for_me'] == true,
         'target_name': prayer['full_name'],
@@ -225,23 +282,41 @@ class HomeFeedService {
         'requested_my_church': prayer['requested_my_church'] == true,
         'my_church_request_count': prayer['my_church_request_count'] ?? 0,
         'is_church_account': prayer['is_church_account'] == true,
+        'origin_church_id': prayer['origin_church_id'],
+        'belongs_to_my_church': prayer['belongs_to_my_church'] == true,
+        'can_request_my_church': prayer['can_request_my_church'] == true,
+        'can_church_support_directly':
+        prayer['can_church_support_directly'] == true,
       });
     }
 
     feedItems.sort((a, b) {
       final aDate =
-          DateTime.tryParse(a['created_at']?.toString() ?? '') ?? DateTime(2000);
+          DateTime.tryParse(a['created_at']?.toString() ?? '') ??
+              DateTime(2000);
       final bDate =
-          DateTime.tryParse(b['created_at']?.toString() ?? '') ?? DateTime(2000);
+          DateTime.tryParse(b['created_at']?.toString() ?? '') ??
+              DateTime(2000);
       return bDate.compareTo(aDate);
     });
 
+    // Ahora sí devolvemos solo el bloque que necesita la UI.
+    final finalItems = feedItems.take(limit).toList();
+
+    final nextCursor = finalItems.isNotEmpty
+        ? finalItems.last['created_at']?.toString()
+        : null;
+
     final hasMore =
-        rawPosts.length == limit || rawVideos.length == limit || feedItems.length >= limit;
+        rawPosts.length >= fetchSize ||
+            rawVideos.length >= fetchSize ||
+            prayerRequests.length >= fetchSize ||
+            feedItems.length > limit;
 
     return {
-      'items': feedItems,
+      'items': finalItems,
       'has_more': hasMore,
+      'next_cursor': nextCursor,
     };
   }
 

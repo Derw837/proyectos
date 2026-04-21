@@ -49,10 +49,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final type = item['type']?.toString() ?? '';
     final relatedId = item['related_id']?.toString() ?? '';
     final isRead = item['is_read'] == true;
+    final duplicateIds =
+    List<String>.from(item['duplicate_ids'] ?? <String>[]);
 
     try {
-      if (!isRead && id.isNotEmpty) {
-        await NotificationsService.markAsRead(id);
+      if (!isRead) {
+        if (duplicateIds.isNotEmpty) {
+          await NotificationsService.markManyAsRead(duplicateIds);
+        } else if (id.isNotEmpty) {
+          await NotificationsService.markAsRead(id);
+        }
       }
 
       if (relatedId.isEmpty && type != 'prayer_request') {
@@ -227,6 +233,30 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       return '$day $month $year • $hour:$minute $period';
     } catch (_) {
       return value.split('T').first;
+    }
+  }
+
+  String _sectionTitleForDate(String value) {
+    try {
+      final date = DateTime.parse(value).toLocal();
+      final now = DateTime.now();
+
+      final today = DateTime(now.year, now.month, now.day);
+      final itemDay = DateTime(date.year, date.month, date.day);
+
+      final difference = today.difference(itemDay).inDays;
+
+      if (difference <= 0) {
+        return 'Hoy';
+      }
+
+      if (difference <= 7) {
+        return 'Esta semana';
+      }
+
+      return 'Anteriores';
+    } catch (_) {
+      return 'Anteriores';
     }
   }
 
@@ -500,12 +530,40 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
+  Widget _sectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: title == 'Hoy'
+                  ? const Color(0xFF0D47A1)
+                  : const Color(0xFF102A43),
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Divider(
+              thickness: 1,
+              color: Color(0xFFE5EAF1),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _notificationCard(Map<String, dynamic> item) {
     final title = item['title']?.toString() ?? '';
     final message = item['message']?.toString() ?? '';
     final type = item['type']?.toString() ?? '';
     final isRead = item['is_read'] == true;
     final createdAt = item['created_at']?.toString() ?? '';
+    final groupedCount = (item['grouped_count'] as int?) ?? 1;
 
     final typeColor = _colorForType(type);
 
@@ -513,7 +571,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       borderRadius: BorderRadius.circular(20),
       onTap: () => _openNotification(item),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
+        margin: const EdgeInsets.only(bottom: 10, left: 2, right: 2),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: isRead ? Colors.white : const Color(0xFFF2F8FF),
@@ -602,6 +660,25 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           ),
                         ),
                       ),
+                      if (groupedCount > 1)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F5E9),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            'x$groupedCount',
+                            style: const TextStyle(
+                              color: Color(0xFF2E7D32),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 10.5,
+                            ),
+                          ),
+                        ),
                       if (createdAt.isNotEmpty)
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -636,17 +713,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                   const SizedBox(height: 10),
                   Row(
-                    children: const [
+                    children: [
                       Text(
-                        'Abrir',
-                        style: TextStyle(
+                        groupedCount > 1 ? 'Abrir grupo' : 'Abrir',
+                        style: const TextStyle(
                           color: Color(0xFF1565C0),
                           fontWeight: FontWeight.w700,
                           fontSize: 11.5,
                         ),
                       ),
-                      SizedBox(width: 4),
-                      Icon(
+                      const SizedBox(width: 4),
+                      const Icon(
                         Icons.arrow_forward_ios_rounded,
                         size: 11,
                         color: Color(0xFF1565C0),
@@ -760,8 +837,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 6, 16, 18),
                 itemCount: filteredNotifications.length,
                 itemBuilder: (context, index) {
-                  return _notificationCard(
-                    filteredNotifications[index],
+                  final item = filteredNotifications[index];
+                  final createdAt = item['created_at']?.toString() ?? '';
+                  final currentSection = _sectionTitleForDate(createdAt);
+
+                  String? previousSection;
+                  if (index > 0) {
+                    final previousCreatedAt =
+                        filteredNotifications[index - 1]['created_at']
+                            ?.toString() ??
+                            '';
+                    previousSection = _sectionTitleForDate(previousCreatedAt);
+                  }
+
+                  final showHeader =
+                      index == 0 || currentSection != previousSection;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (showHeader) _sectionHeader(currentSection),
+                      _notificationCard(item),
+                    ],
                   );
                 },
               ),

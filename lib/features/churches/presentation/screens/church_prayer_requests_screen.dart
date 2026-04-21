@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:red_cristiana/core/utils/app_error_helper.dart';
 import 'package:red_cristiana/features/churches/data/church_prayer_requests_service.dart';
 import 'package:red_cristiana/features/churches/presentation/widgets/church_header_shell.dart';
 
@@ -25,7 +26,7 @@ class _ChurchPrayerRequestsScreenState
   List<Map<String, dynamic>> filtered = [];
 
   String selectedCategory = 'all';
-  String selectedPeriod = 'today';
+  String selectedPeriod = 'all';
 
   final categories = const [
     {'value': 'all', 'label': 'Todas'},
@@ -80,7 +81,7 @@ class _ChurchPrayerRequestsScreenState
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error cargando peticiones: $e')),
+        SnackBar(content: Text(await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudieron cargar las peticiones en este momento.'))),
       );
     }
   }

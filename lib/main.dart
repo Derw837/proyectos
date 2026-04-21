@@ -1,6 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:red_cristiana/app/app.dart';
 import 'package:red_cristiana/firebase_options.dart';
@@ -52,6 +54,16 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('Error Supabase.initialize: $e');
   }
+
+  try {
+    await MobileAds.instance.initialize();
+  } catch (e) {
+    debugPrint('Error MobileAds.initialize: $e');
+  }
+
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
 
   runApp(const RedCristianaApp());
 }

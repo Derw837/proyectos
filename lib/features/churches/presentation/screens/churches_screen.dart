@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:red_cristiana/core/utils/app_error_helper.dart';
 import 'package:red_cristiana/core/widgets/network_error_view.dart';
 import 'package:red_cristiana/features/churches/data/church_service.dart';
 import 'package:red_cristiana/features/churches/data/models/church_model.dart';
@@ -38,6 +39,16 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
   String selectedCountry = '';
   String selectedCity = '';
   String selectedSector = '';
+  String profileCountry = '';
+  String profileCity = '';
+  String profileSector = '';
+
+  bool showingCityFallback = false;
+  bool showingCountryFallback = false;
+  bool showingSectorSuggestion = false;
+
+  int cityMatchesCount = 0;
+  int countryMatchesCount = 0;
 
   @override
   void initState() {
@@ -54,77 +65,229 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
   }
 
   void _onSearchChanged() {
-    if (!mounted) return;
-    setState(() {
-      filteredChurches = _getFilteredChurches();
-    });
+  _recalculateChurches();
+}
+
+  String _normalizeText(String value) {
+  return value
+      .toLowerCase()
+      .trim()
+      .replaceAll('á', 'a')
+      .replaceAll('é', 'e')
+      .replaceAll('í', 'i')
+      .replaceAll('ó', 'o')
+      .replaceAll('ú', 'u')
+      .replaceAll('ü', 'u')
+      .replaceAll('ñ', 'n')
+      .replaceAll(RegExp(r'\s+'), ' ');
+}
+
+bool _matchesLoose(String source, String target) {
+  final a = _normalizeText(source);
+  final b = _normalizeText(target);
+
+  if (a.isEmpty || b.isEmpty) return false;
+
+  return a == b || a.contains(b) || b.contains(a);
+}
+
+void _recalculateChurches() {
+  final query = searchController.text.trim().toLowerCase();
+
+  final base = allChurches.where((church) {
+    final matchesQuery = query.isEmpty ||
+        church.churchName.toLowerCase().contains(query) ||
+        church.city.toLowerCase().contains(query) ||
+        church.country.toLowerCase().contains(query) ||
+        church.sector.toLowerCase().contains(query) ||
+        church.pastorName.toLowerCase().contains(query);
+
+    final matchesCountry =
+        selectedCountry.isEmpty || _matchesLoose(church.country, selectedCountry);
+
+    final matchesCity =
+        selectedCity.isEmpty || _matchesLoose(church.city, selectedCity);
+
+    return matchesQuery && matchesCountry && matchesCity;
+  }).toList();
+
+  final cityBase = base;
+  final countryBase = allChurches.where((church) {
+    final matchesQuery = query.isEmpty ||
+        church.churchName.toLowerCase().contains(query) ||
+        church.city.toLowerCase().contains(query) ||
+        church.country.toLowerCase().contains(query) ||
+        church.sector.toLowerCase().contains(query) ||
+        church.pastorName.toLowerCase().contains(query);
+
+    final matchesCountry =
+        selectedCountry.isEmpty || _matchesLoose(church.country, selectedCountry);
+
+    return matchesQuery && matchesCountry;
+  }).toList();
+
+  List<ChurchModel> result = [];
+  bool cityFallback = false;
+  bool countryFallback = false;
+  bool sectorSuggestion = false;
+
+  int cityCount = cityBase.length;
+  int countryCount = countryBase.length;
+
+  if (selectedSector.trim().isNotEmpty) {
+    final sectorResults = cityBase.where((church) {
+      return _matchesLoose(church.sector, selectedSector);
+    }).toList();
+
+    if (sectorResults.isNotEmpty) {
+      result = sectorResults;
+
+      if (selectedCity.trim().isNotEmpty &&
+          cityBase.length > sectorResults.length &&
+          sectorResults.length <= 2) {
+        sectorSuggestion = true;
+      }
+    } else {
+      if (selectedCity.trim().isNotEmpty && cityBase.isNotEmpty) {
+        result = cityBase;
+        cityFallback = true;
+      } else if (selectedCountry.trim().isNotEmpty && countryBase.isNotEmpty) {
+        result = countryBase;
+        countryFallback = true;
+      } else {
+        result = [];
+      }
+    }
+  } else {
+    result = cityBase;
   }
 
+  if (!mounted) return;
+
+  setState(() {
+    filteredChurches = result;
+    showingCityFallback = cityFallback;
+    showingCountryFallback = countryFallback;
+    showingSectorSuggestion = sectorSuggestion;
+    cityMatchesCount = cityCount;
+    countryMatchesCount = countryCount;
+  });
+}
+
   List<ChurchModel> _getFilteredChurches() {
-    final query = searchController.text.trim().toLowerCase();
+  return filteredChurches;
+}
 
-    return allChurches.where((church) {
-      final matchesQuery = query.isEmpty ||
-          church.churchName.toLowerCase().contains(query) ||
-          church.city.toLowerCase().contains(query) ||
-          church.country.toLowerCase().contains(query) ||
-          church.sector.toLowerCase().contains(query) ||
-          church.pastorName.toLowerCase().contains(query);
+  List<String> _uniqueSorted(List<String> items) {
+    final map = <String, String>{};
 
-      final matchesCountry =
-          selectedCountry.isEmpty || church.country == selectedCountry;
+    for (final item in items) {
+      final trimmed = item.trim();
+      if (trimmed.isEmpty) continue;
 
-      final matchesCity =
-          selectedCity.isEmpty || church.city == selectedCity;
+      final key = _normalizeText(trimmed);
+      map.putIfAbsent(key, () => trimmed);
+    }
 
-      final matchesSector =
-          selectedSector.isEmpty || church.sector == selectedSector;
+    final result = map.values.toList();
+    result.sort((a, b) => _normalizeText(a).compareTo(_normalizeText(b)));
+    return result;
+  }
 
-      return matchesQuery && matchesCountry && matchesCity && matchesSector;
+  List<String> _availableCitiesForCountry(String country) {
+    final source = country.trim().isEmpty
+        ? allChurches
+        : allChurches.where((church) {
+      return _normalizeText(church.country) == _normalizeText(country);
     }).toList();
+
+    return _uniqueSorted(
+      source.map((church) => church.city).where((e) => e.trim().isNotEmpty).toList(),
+    );
+  }
+
+  List<String> _availableSectors({
+    required String country,
+    required String city,
+  }) {
+    final source = allChurches.where((church) {
+      final countryMatch = country.trim().isEmpty
+          ? true
+          : _normalizeText(church.country) == _normalizeText(country);
+
+      final cityMatch = city.trim().isEmpty
+          ? true
+          : _normalizeText(church.city) == _normalizeText(city);
+
+      return countryMatch && cityMatch;
+    }).toList();
+
+    return _uniqueSorted(
+      source.map((church) => church.sector).where((e) => e.trim().isNotEmpty).toList(),
+    );
   }
 
   Future<void> _loadData() async {
-    try {
-      if (!mounted) return;
-      setState(() {
-        isLoading = true;
-        hasError = false;
-        errorMessage = '';
-      });
+  try {
+    if (!mounted) return;
+    setState(() {
+      isLoading = true;
+      hasError = false;
+      errorMessage = '';
+    });
 
-      final churchesResponse = await ChurchService.getApprovedChurches();
-      final countriesResponse = await ChurchService.getAvailableCountries();
-      final citiesResponse = await ChurchService.getAvailableCities();
-      final sectorsResponse = await ChurchService.getAvailableSectors();
+    final user = Supabase.instance.client.auth.currentUser;
 
-      final churches = churchesResponse
-          .map((item) => ChurchModel.fromMap(item))
-          .toList();
+    final churchesResponse = await ChurchService.getApprovedChurches();
+    final countriesResponse = await ChurchService.getAvailableCountries();
+    final citiesResponse = await ChurchService.getAvailableCities();
+    final sectorsResponse = await ChurchService.getAvailableSectors();
 
-      if (!mounted) return;
-
-      allChurches = churches;
-      countries = countriesResponse;
-      cities = citiesResponse;
-      sectors = sectorsResponse;
-
-      setState(() {
-        filteredChurches = _getFilteredChurches();
-        isLoading = false;
-        hasError = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        isLoading = false;
-        hasError = true;
-        errorMessage =
-        'Creo que no tienes internet. Verifica tu conexión y vuelve a intentarlo.';
-      });
+    Map<String, dynamic>? profile;
+    if (user != null) {
+      profile = await Supabase.instance.client
+          .from('profiles')
+          .select('country, city, sector')
+          .eq('id', user.id)
+          .maybeSingle();
     }
+
+    final churches = churchesResponse
+        .map((item) => ChurchModel.fromMap(item))
+        .toList();
+
+    if (!mounted) return;
+
+    allChurches = churches;
+    countries = countriesResponse;
+    cities = citiesResponse;
+    sectors = sectorsResponse;
+
+    profileCountry = profile?['country']?.toString() ?? '';
+    profileCity = profile?['city']?.toString() ?? '';
+    profileSector = profile?['sector']?.toString() ?? '';
+
+    setState(() {
+      isLoading = false;
+      hasError = false;
+    });
+
+    _recalculateChurches();
+  } catch (e) {
+    if (!mounted) return;
+
+    final message = await AppErrorHelper.friendlyMessage(
+      e,
+      fallback: 'No se pudieron cargar las iglesias en este momento.',
+    );
+
+    setState(() {
+      isLoading = false;
+      hasError = true;
+      errorMessage = message;
+    });
   }
+}
 
   Future<void> _toggleNearMe() async {
     if (nearMeOnly) {
@@ -133,8 +296,10 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
         nearMeOnly = false;
         selectedCountry = '';
         selectedCity = '';
-        filteredChurches = _getFilteredChurches();
+        selectedSector = '';
       });
+
+      _recalculateChurches();
       return;
     }
 
@@ -143,7 +308,7 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
 
     final profile = await Supabase.instance.client
         .from('profiles')
-        .select('country, city')
+        .select('country, city, sector')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -151,14 +316,17 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
 
     final myCountry = profile['country']?.toString() ?? '';
     final myCity = profile['city']?.toString() ?? '';
+    final mySector = profile['sector']?.toString() ?? '';
 
     setState(() {
       nearMeOnly = true;
       selectedCountry = myCountry;
       selectedCity = myCity;
+      selectedSector = mySector;
       searchController.clear();
-      filteredChurches = _getFilteredChurches();
     });
+
+    _recalculateChurches();
   }
 
   void _clearFilters() {
@@ -170,8 +338,9 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
       selectedCountry = '';
       selectedCity = '';
       selectedSector = '';
-      filteredChurches = _getFilteredChurches();
     });
+
+    _recalculateChurches();
   }
 
   Future<void> _openSearchSheet() async {
@@ -187,6 +356,13 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
         String tempCity = selectedCity;
         String tempSector = selectedSector;
 
+        final modalCities = _availableCitiesForCountry(tempCountry);
+
+        final modalSectors = _availableSectors(
+          country: tempCountry,
+          city: tempCity,
+        );
+
         return StatefulBuilder(
           builder: (context, setSheetState) {
             Widget dropdownFilter({
@@ -196,8 +372,12 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
               required ValueChanged<String?> onChanged,
               required IconData icon,
             }) {
+              final safeItems = _uniqueSorted(items);
+              final safeValue =
+              value.isEmpty || !safeItems.contains(value) ? null : value;
+
               return DropdownButtonFormField<String>(
-                value: value.isEmpty ? null : value,
+                value: safeValue,
                 isExpanded: true,
                 decoration: InputDecoration(
                   labelText: label,
@@ -225,7 +405,7 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
                     borderSide: const BorderSide(color: _border),
                   ),
                 ),
-                items: items
+                items: safeItems
                     .map(
                       (item) => DropdownMenuItem<String>(
                     value: item,
@@ -337,11 +517,13 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
                         dropdownFilter(
                           label: 'País',
                           value: tempCountry,
-                          items: countries,
+                          items: _uniqueSorted(countries),
                           icon: Icons.public,
                           onChanged: (value) {
                             setSheetState(() {
                               tempCountry = value ?? '';
+                              tempCity = '';
+                              tempSector = '';
                             });
                           },
                         ),
@@ -349,11 +531,12 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
                         dropdownFilter(
                           label: 'Ciudad',
                           value: tempCity,
-                          items: cities,
+                          items: modalCities,
                           icon: Icons.location_city,
                           onChanged: (value) {
                             setSheetState(() {
                               tempCity = value ?? '';
+                              tempSector = '';
                             });
                           },
                         ),
@@ -361,7 +544,7 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
                         dropdownFilter(
                           label: 'Sector',
                           value: tempSector,
-                          items: sectors,
+                          items: modalSectors,
                           icon: Icons.map_outlined,
                           onChanged: (value) {
                             setSheetState(() {
@@ -446,8 +629,9 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
       selectedCity = result.city;
       selectedSector = result.sector;
       searchController.text = result.search;
-      filteredChurches = _getFilteredChurches();
     });
+
+    _recalculateChurches();
   }
 
   Widget _heroCard() {
@@ -498,7 +682,14 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
   }
 
   Widget _actionBar() {
-    final hasFilters = searchController.text.trim().isNotEmpty ||
+    final hasManualFilters = searchController.text.trim().isNotEmpty ||
+        (!nearMeOnly &&
+            (selectedCountry.isNotEmpty ||
+                selectedCity.isNotEmpty ||
+                selectedSector.isNotEmpty));
+
+    final hasAnythingActive = nearMeOnly ||
+        searchController.text.trim().isNotEmpty ||
         selectedCountry.isNotEmpty ||
         selectedCity.isNotEmpty ||
         selectedSector.isNotEmpty;
@@ -511,11 +702,11 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
             child: OutlinedButton.icon(
               onPressed: _openSearchSheet,
               icon: Icon(
-                hasFilters ? Icons.tune : Icons.search,
+                hasManualFilters ? Icons.tune : Icons.search,
                 color: _primary,
               ),
               label: Text(
-                hasFilters ? 'Editar búsqueda' : 'Buscar y filtrar',
+                hasManualFilters ? 'Editar búsqueda' : 'Buscar',
                 style: const TextStyle(
                   color: _primary,
                   fontWeight: FontWeight.w800,
@@ -564,7 +755,7 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
               ),
             ),
           ),
-          if (hasFilters || nearMeOnly) ...[
+          if (hasAnythingActive) ...[
             const SizedBox(width: 10),
             InkWell(
               borderRadius: BorderRadius.circular(18),
@@ -601,6 +792,169 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
       ),
     );
   }
+
+    Widget _suggestionCard() {
+      if (!showingCityFallback &&
+          !showingCountryFallback &&
+          !showingSectorSuggestion) {
+        return const SizedBox.shrink();
+      }
+
+      String title = '';
+      String subtitle = '';
+      String primaryLabel = '';
+      VoidCallback? primaryAction;
+      String? secondaryLabel;
+      VoidCallback? secondaryAction;
+
+      if (showingSectorSuggestion) {
+        final extra = cityMatchesCount - filteredChurches.length;
+        title = 'Encontramos iglesias en tu sector';
+        subtitle = extra > 0
+            ? 'Además, en tu ciudad hay $extra iglesias más. ¿Quieres verlas?'
+            : 'También puedes ver todas las iglesias de tu ciudad.';
+        primaryLabel = 'Ver iglesias de mi ciudad';
+        primaryAction = () {
+          setState(() {
+            selectedSector = '';
+          });
+          _recalculateChurches();
+        };
+
+        if (selectedCountry.trim().isNotEmpty) {
+          secondaryLabel = 'Ver todas las de mi país';
+          secondaryAction = () {
+            setState(() {
+              selectedCity = '';
+              selectedSector = '';
+            });
+            _recalculateChurches();
+          };
+        }
+      } else if (showingCityFallback) {
+        title = 'No encontramos iglesias en tu sector';
+        subtitle =
+        'Pero sí encontramos $cityMatchesCount iglesias en tu ciudad.';
+        primaryLabel = 'Ver solo las de mi ciudad';
+        primaryAction = () {
+          setState(() {
+            selectedSector = '';
+          });
+          _recalculateChurches();
+        };
+
+        if (selectedCountry.trim().isNotEmpty) {
+          secondaryLabel = 'Ver todas las de mi país';
+          secondaryAction = () {
+            setState(() {
+              selectedCity = '';
+              selectedSector = '';
+            });
+            _recalculateChurches();
+          };
+        }
+      } else if (showingCountryFallback) {
+        title = 'No encontramos iglesias en tu sector o ciudad';
+        subtitle =
+        'Pero sí encontramos $countryMatchesCount iglesias en tu país.';
+        primaryLabel = 'Ver iglesias de mi país';
+        primaryAction = () {
+          setState(() {
+            selectedCity = '';
+            selectedSector = '';
+          });
+          _recalculateChurches();
+        };
+      }
+
+      return Container(
+        margin: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: _border),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0A000000),
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.lightbulb_outline, color: _primary),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Sugerencia',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: _textDark,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                color: _textDark,
+                fontSize: 14.5,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                color: _textSoft,
+                fontSize: 13.2,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: primaryAction,
+                  icon: const Icon(Icons.location_city),
+                  label: Text(primaryLabel),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+                if (secondaryLabel != null && secondaryAction != null)
+                  OutlinedButton.icon(
+                    onPressed: secondaryAction,
+                    icon: const Icon(Icons.public),
+                    label: Text(secondaryLabel),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _primary,
+                      side: const BorderSide(color: _border),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
 
   Widget _churchCard(ChurchModel church) {
     final location = [
@@ -889,28 +1243,29 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
     );
   }
 
-  Widget _content() {
-    return Column(
-      children: [
-        _heroCard(),
-        _actionBar(),
-        Expanded(
-          child: filteredChurches.isEmpty
-              ? _emptyState()
-              : RefreshIndicator(
-            onRefresh: _loadData,
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              itemCount: filteredChurches.length,
-              itemBuilder: (context, index) {
-                return _churchCard(filteredChurches[index]);
-              },
+    Widget _content() {
+      return Column(
+        children: [
+          _heroCard(),
+          _actionBar(),
+          _suggestionCard(),
+          Expanded(
+            child: filteredChurches.isEmpty
+                ? _emptyState()
+                : RefreshIndicator(
+              onRefresh: _loadData,
+              child: ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                itemCount: filteredChurches.length,
+                itemBuilder: (context, index) {
+                  return _churchCard(filteredChurches[index]);
+                },
+              ),
             ),
           ),
-        ),
-      ],
-    );
-  }
+        ],
+      );
+    }
 
   @override
   Widget build(BuildContext context) {

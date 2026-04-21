@@ -4,7 +4,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class NotificationsService {
   static final _client = Supabase.instance.client;
 
-  static Future<List<Map<String, dynamic>>> getMyNotifications() async {
+  static Future<List<Map<String, dynamic>>> getMyNotifications({
+    int rawLimit = 120,
+    int finalLimit = 60,
+  }) async {
     final user = _client.auth.currentUser;
     if (user == null) return [];
 
@@ -12,15 +15,115 @@ class NotificationsService {
         .from('user_notifications')
         .select()
         .eq('user_id', user.id)
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .limit(rawLimit);
 
-    return List<Map<String, dynamic>>.from(response);
+    final rawItems = List<Map<String, dynamic>>.from(response);
+
+    final grouped = <String, Map<String, dynamic>>{};
+    final groupedOrder = <String>[];
+
+    for (final raw in rawItems) {
+      final item = Map<String, dynamic>.from(raw);
+
+      final type = item['type']?.toString() ?? '';
+      final title = item['title']?.toString().trim() ?? '';
+      final message = item['message']?.toString().trim() ?? '';
+      final relatedId = item['related_id']?.toString() ?? '';
+      final churchId = item['church_id']?.toString() ?? '';
+
+      String dayKey = '';
+      final createdAt = item['created_at']?.toString() ?? '';
+      try {
+        final dt = DateTime.parse(createdAt).toLocal();
+        dayKey =
+        '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+      } catch (_) {}
+
+      final groupKey =
+          '$type|$title|$message|$relatedId|$churchId|$dayKey';
+
+      if (!grouped.containsKey(groupKey)) {
+        item['grouped_count'] = 1;
+        item['duplicate_ids'] = <String>[
+          item['id']?.toString() ?? '',
+        ].where((e) => e.isNotEmpty).toList();
+
+        grouped[groupKey] = item;
+        groupedOrder.add(groupKey);
+      } else {
+        final current = grouped[groupKey]!;
+        final duplicateIds =
+        List<String>.from(current['duplicate_ids'] ?? <String>[]);
+
+        final newId = item['id']?.toString() ?? '';
+        if (newId.isNotEmpty && !duplicateIds.contains(newId)) {
+          duplicateIds.add(newId);
+        }
+
+        current['duplicate_ids'] = duplicateIds;
+        current['grouped_count'] = (current['grouped_count'] ?? 1) + 1;
+
+        final currentCreatedAt = current['created_at']?.toString() ?? '';
+        final incomingCreatedAt = item['created_at']?.toString() ?? '';
+
+        DateTime currentDate;
+        DateTime incomingDate;
+
+        try {
+          currentDate = DateTime.parse(currentCreatedAt);
+        } catch (_) {
+          currentDate = DateTime(2000);
+        }
+
+        try {
+          incomingDate = DateTime.parse(incomingCreatedAt);
+        } catch (_) {
+          incomingDate = DateTime(2000);
+        }
+
+        if (incomingDate.isAfter(currentDate)) {
+          current['id'] = item['id'];
+          current['created_at'] = item['created_at'];
+          current['is_read'] = item['is_read'];
+          current['related_id'] = item['related_id'];
+        }
+      }
+    }
+
+    final result = groupedOrder
+        .map((key) => grouped[key]!)
+        .toList()
+      ..sort((a, b) {
+        final aDate =
+            DateTime.tryParse(a['created_at']?.toString() ?? '') ??
+                DateTime(2000);
+        final bDate =
+            DateTime.tryParse(b['created_at']?.toString() ?? '') ??
+                DateTime(2000);
+        return bDate.compareTo(aDate);
+      });
+
+    return result.take(finalLimit).toList();
   }
 
   static Future<void> markAsRead(String notificationId) async {
     await _client.from('user_notifications').update({
       'is_read': true,
     }).eq('id', notificationId);
+  }
+
+  static Future<void> markManyAsRead(List<String> notificationIds) async {
+    final cleanIds = notificationIds
+        .where((e) => e.trim().isNotEmpty)
+        .toSet()
+        .toList();
+
+    if (cleanIds.isEmpty) return;
+
+    await _client.from('user_notifications').update({
+      'is_read': true,
+    }).inFilter('id', cleanIds);
   }
 
   static Future<void> markAllAsRead() async {
@@ -55,10 +158,7 @@ class NotificationsService {
         .from('user_notifications')
         .stream(primaryKey: ['id'])
         .eq('user_id', user.id)
-        .map((rows) {
-      final unread = rows.where((row) => row['is_read'] != true).length;
-      return unread;
-    });
+        .map((rows) => rows.where((row) => row['is_read'] != true).length);
   }
 
   static Future<Map<String, dynamic>?> getEventById(String eventId) async {
@@ -195,16 +295,39 @@ class NotificationsService {
 
     final controller = StreamController<Map<String, dynamic>>.broadcast();
 
+    bool initialized = false;
+    final knownIds = <String>{};
+
     final subscription = _client
         .from('user_notifications')
         .stream(primaryKey: ['id'])
         .eq('user_id', user.id)
         .order('created_at')
         .listen((rows) {
-      if (rows.isEmpty) return;
+      final mappedRows = rows
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList();
 
-      final latest = rows.last;
-      controller.add(Map<String, dynamic>.from(latest));
+      if (!initialized) {
+        for (final row in mappedRows) {
+          final id = row['id']?.toString() ?? '';
+          if (id.isNotEmpty) {
+            knownIds.add(id);
+          }
+        }
+        initialized = true;
+        return;
+      }
+
+      for (final row in mappedRows) {
+        final id = row['id']?.toString() ?? '';
+        if (id.isEmpty) continue;
+
+        if (!knownIds.contains(id)) {
+          knownIds.add(id);
+          controller.add(row);
+        }
+      }
     });
 
     controller.onCancel = () {

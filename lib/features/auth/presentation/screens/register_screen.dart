@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:red_cristiana/core/utils/app_error_helper.dart';
+import 'package:red_cristiana/core/utils/user_helper.dart';
 import 'package:red_cristiana/features/auth/presentation/screens/church_registration_screen.dart';
 import 'package:red_cristiana/features/home/presentation/screens/home_screen.dart';
+import 'package:red_cristiana/features/auth/presentation/screens/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -43,52 +46,63 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final response = await Supabase.instance.client.auth.signUp(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
+        emailRedirectTo: 'https://pigoapp.com',
+        data: {
+          'role': selectedRole,
+          'full_name': fullNameController.text.trim(),
+          'signup_source': 'email',
+        },
       );
 
       final user = response.user;
 
-      if (user != null) {
-        await Supabase.instance.client.from('profiles').insert({
-          'id': user.id,
-          'full_name': fullNameController.text.trim(),
-          'role': selectedRole,
-          'country': 'Ecuador',
-          'city': '',
-          'sector': '',
-          'approval_status': selectedRole == 'church' ? 'pending' : 'approved',
-        });
+      if (user == null) {
+        throw Exception('No se pudo crear el usuario');
       }
 
       if (!mounted) return;
 
-      if (selectedRole == 'church') {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ChurchRegistrationScreen(
-              userId: user!.id,
-              userEmail: emailController.text.trim(),
-            ),
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => AlertDialog(
+          title: const Text('Revisa tu correo'),
+          content: Text(
+            'Te enviamos un enlace de confirmación a ${emailController.text.trim()}. '
+                'Después de confirmarlo, podrás iniciar sesión normalmente.',
           ),
-              (route) => false,
-        );
-      } else {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-              (route) => false,
-        );
-      }
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const LoginScreen(showBack: true),
+                  ),
+                      (route) => false,
+                );
+              },
+              child: const Text('Entendido'),
+            ),
+          ],
+        ),
+      );
     } on AuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
+        SnackBar(content: Text(AppErrorHelper.authMessage(e.message))),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al crear la cuenta: $e'),
+          content: Text(
+            await AppErrorHelper.friendlyMessage(
+              e,
+              fallback: 'No se pudo crear la cuenta en este momento.',
+            ),
+          ),
         ),
       );
     } finally {
@@ -100,32 +114,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   String? _validateName(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Ingresa tu nombre';
-    }
-    if (value.trim().length < 3) {
-      return 'Tu nombre es demasiado corto';
-    }
+    if (value == null || value.trim().isEmpty) return 'Ingresa tu nombre';
+    if (value.trim().length < 3) return 'Tu nombre es demasiado corto';
     return null;
   }
 
   String? _validateEmail(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Ingresa tu correo electrónico';
-    }
-    if (!value.contains('@') || !value.contains('.')) {
-      return 'Ingresa un correo válido';
-    }
+    if (value == null || value.trim().isEmpty) return 'Ingresa tu correo';
+    if (!value.contains('@') || !value.contains('.')) return 'Correo inválido';
     return null;
   }
 
   String? _validatePassword(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Ingresa una contraseña';
-    }
-    if (value.trim().length < 6) {
-      return 'Debe tener al menos 6 caracteres';
-    }
+    if (value == null || value.trim().isEmpty) return 'Ingresa una contraseña';
+    if (value.trim().length < 6) return 'Debe tener al menos 6 caracteres';
     return null;
   }
 
@@ -163,9 +165,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             color: isSelected ? const Color(0xFF0D47A1) : Colors.grey.shade300,
             width: isSelected ? 2 : 1,
           ),
-          color: isSelected
-              ? const Color(0xFFEAF4FF)
-              : Colors.white,
+          color: isSelected ? const Color(0xFFEAF4FF) : Colors.white,
         ),
         child: Row(
           children: [
@@ -217,51 +217,55 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF7F9FC),
       appBar: AppBar(
         title: const Text('Crear cuenta'),
-        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const LoginScreen(showBack: true),
+              ),
+            );
+          },
+        ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(22),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 10),
                 const Text(
                   'Únete a Red Cristiana',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 const Text(
                   'Crea tu cuenta y elige cómo deseas participar en la plataforma.',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.black54,
-                  ),
+                  style: TextStyle(fontSize: 15, color: Colors.black54),
                 ),
-                const SizedBox(height: 28),
-
+                const SizedBox(height: 26),
                 _buildRoleCard(
                   value: 'user',
                   title: 'Persona',
-                  subtitle: 'Buscar iglesias, eventos, ayuda espiritual y contenido cristiano.',
+                  subtitle:
+                  'Buscar iglesias, eventos, ayuda espiritual y contenido cristiano.',
                   icon: Icons.person_outline,
                 ),
                 const SizedBox(height: 14),
                 _buildRoleCard(
                   value: 'church',
                   title: 'Iglesia',
-                  subtitle: 'Registrar tu iglesia, publicar horarios, eventos y recibir contactos.',
+                  subtitle:
+                  'Registrar tu iglesia, publicar horarios, eventos y recibir contactos.',
                   icon: Icons.church_outlined,
                 ),
-
-                const SizedBox(height: 28),
+                const SizedBox(height: 24),
                 TextFormField(
                   controller: fullNameController,
                   validator: _validateName,
@@ -275,7 +279,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 18),
                 TextFormField(
                   controller: emailController,
                   keyboardType: TextInputType.emailAddress,
@@ -288,7 +292,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 18),
                 TextFormField(
                   controller: passwordController,
                   obscureText: obscurePassword,
@@ -313,7 +317,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 18),
                 TextFormField(
                   controller: confirmPasswordController,
                   obscureText: obscureConfirmPassword,
@@ -338,10 +342,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 26),
                 SizedBox(
                   width: double.infinity,
-                  height: 55,
+                  height: 54,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF0D47A1),
@@ -364,7 +368,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       'Continuar',
                       style: TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:red_cristiana/core/utils/app_error_helper.dart';
 import 'package:flutter/services.dart';
 import 'package:red_cristiana/features/churches/data/church_public_service.dart';
 import 'package:red_cristiana/features/churches/data/models/church_model.dart';
@@ -132,7 +133,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error en Me gusta: $e')),
+        SnackBar(content: Text(await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudo actualizar el Me gusta en este momento.'))),
       );
     }
   }
@@ -217,7 +218,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error de membresía: $e')),
+        SnackBar(content: Text(await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudo completar la membresía en este momento.'))),
       );
     }
   }

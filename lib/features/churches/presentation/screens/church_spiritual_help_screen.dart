@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:red_cristiana/core/utils/app_error_helper.dart';
 import 'package:red_cristiana/features/churches/data/church_dashboard_service.dart';
 import 'package:red_cristiana/features/churches/presentation/widgets/church_header_shell.dart';
 
@@ -73,7 +74,7 @@ class _ChurchSpiritualHelpScreenState extends State<ChurchSpiritualHelpScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error cargando apoyo espiritual: $e')),
+        SnackBar(content: Text(await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudo cargar el apoyo espiritual en este momento.'))),
       );
     }
   }
@@ -108,7 +109,7 @@ class _ChurchSpiritualHelpScreenState extends State<ChurchSpiritualHelpScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error guardando: $e')),
+        SnackBar(content: Text(await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudo guardar el apoyo espiritual en este momento.'))),
       );
     } finally {
       if (!mounted) return;

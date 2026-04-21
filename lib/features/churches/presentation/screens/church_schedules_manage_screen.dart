@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:red_cristiana/core/utils/app_error_helper.dart';
 import 'package:red_cristiana/features/churches/data/church_schedule_service.dart';
 import 'package:red_cristiana/features/churches/presentation/widgets/church_header_shell.dart';
 
@@ -56,7 +57,7 @@ class _ChurchSchedulesManageScreenState
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error cargando horarios: $e')),
+        SnackBar(content: Text(await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudieron cargar los horarios en este momento.'))),
       );
     }
   }
@@ -434,7 +435,7 @@ class _ChurchSchedulesManageScreenState
                                           .showSnackBar(
                                         SnackBar(
                                           content: Text(
-                                            'Error guardando horario: $e',
+                                            await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudo guardar el horario en este momento.'),
                                           ),
                                         ),
                                       );
@@ -512,7 +513,7 @@ class _ChurchSchedulesManageScreenState
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error eliminando horario: $e')),
+        SnackBar(content: Text(await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudo eliminar el horario en este momento.'))),
       );
     }
   }

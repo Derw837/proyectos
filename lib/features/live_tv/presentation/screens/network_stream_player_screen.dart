@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:red_cristiana/core/ads/ad_service.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:red_cristiana/core/ads/ad_units.dart';
 
 class NetworkStreamPlayerScreen extends StatefulWidget {
   final List<Map<String, dynamic>> channels;
@@ -42,6 +44,13 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
 
   @override
   void initState() {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _currentIndex = widget.initialIndex;
@@ -51,6 +60,12 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
 
   @override
   void dispose() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+
     WidgetsBinding.instance.removeObserver(this);
     _hideTimer?.cancel();
     _disposeController();
@@ -168,8 +183,9 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
     try {
       await _disposeController();
 
-      final controller =
-      VideoPlayerController.networkUrl(Uri.parse(currentUrl));
+      final controller = VideoPlayerController.networkUrl(
+        Uri.parse(currentUrl),
+      );
 
       _controller = controller;
 
@@ -226,8 +242,41 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
 
   Future<void> _previousChannel() async {
     if (widget.channels.isEmpty) return;
-    final prev = (_currentIndex - 1 + widget.channels.length) % widget.channels.length;
+    final prev = (_currentIndex - 1 + widget.channels.length) %
+        widget.channels.length;
     await _goToChannel(prev);
+  }
+
+  Future<void> _openSupportChannel() async {
+    setState(() {
+      _showChannelDrawer = false;
+    });
+
+    final shown = await AdService.showRewardedAd(
+      adUnitId: AdUnits.rewardedTvSupport,
+      onRewardEarned: () {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🙏 Gracias por apoyar Red Cristiana'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      },
+    );
+
+    if (!shown && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'El video de apoyo aún no está listo. Inténtalo de nuevo en unos segundos.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+
+    _showUI();
   }
 
   void _toggleFullscreen() {
@@ -302,6 +351,98 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
     );
   }
 
+  Widget _buildSupportChannelCard() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF1B5E20),
+            Color(0xFF2E7D32),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x22000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: _openSupportChannel,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.favorite_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Canal de apoyo',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Mira un video corto y ayúdanos a mantener esta señal gratuita para todos.',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.92),
+                      fontSize: 12.2,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.14),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: const Text(
+                      'Ver video de apoyo',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildChannelDrawer() {
     return Positioned(
       right: 10,
@@ -313,7 +454,7 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
         child: IgnorePointer(
           ignoring: !_showChannelDrawer,
           child: Container(
-            width: 190,
+            width: 210,
             decoration: BoxDecoration(
               color: Colors.black.withOpacity(0.86),
               borderRadius: BorderRadius.circular(16),
@@ -331,7 +472,11 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
                     ),
                   ),
                 ),
+
+                _buildSupportChannelCard(),
+
                 const Divider(color: Colors.white24, height: 1),
+
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(vertical: 6),
@@ -345,15 +490,11 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
                       return InkWell(
                         onTap: () => _goToChannel(index),
                         child: Container(
-                          height: 58,
                           margin: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 3,
-                          ),
-                          padding: const EdgeInsets.symmetric(
                             horizontal: 8,
-                            vertical: 6,
+                            vertical: 4,
                           ),
+                          padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: selected
                                 ? Colors.white.withOpacity(0.14)
@@ -366,11 +507,11 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
                           child: Row(
                             children: [
                               Container(
-                                width: 38,
-                                height: 38,
+                                width: 42,
+                                height: 42,
                                 decoration: BoxDecoration(
-                                  color: Colors.white12,
-                                  borderRadius: BorderRadius.circular(8),
+                                  color: Colors.white10,
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
                                 clipBehavior: Clip.antiAlias,
                                 child: logo.isNotEmpty
@@ -380,14 +521,12 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
                                   errorBuilder: (_, __, ___) =>
                                   const Icon(
                                     Icons.live_tv,
-                                    color: Colors.white,
-                                    size: 20,
+                                    color: Colors.white70,
                                   ),
                                 )
                                     : const Icon(
                                   Icons.live_tv,
-                                  color: Colors.white,
-                                  size: 20,
+                                  color: Colors.white70,
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -433,7 +572,8 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
               children: [
                 IconButton(
                   onPressed: () async {
-                    final view = WidgetsBinding.instance.platformDispatcher.views.first;
+                    final view =
+                        WidgetsBinding.instance.platformDispatcher.views.first;
                     final size = view.physicalSize;
                     final landscape = size.width > size.height;
 
@@ -442,7 +582,9 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
                         DeviceOrientation.portraitUp,
                         DeviceOrientation.portraitDown,
                       ]);
-                      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+                      SystemChrome.setEnabledSystemUIMode(
+                        SystemUiMode.edgeToEdge,
+                      );
                     } else {
                       await WakelockPlus.disable();
                       if (mounted) Navigator.pop(context);
@@ -550,7 +692,9 @@ class _NetworkStreamPlayerScreenState extends State<NetworkStreamPlayerScreen>
                         decoration: BoxDecoration(
                           color: Colors.red.withOpacity(0.18),
                           borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: Colors.redAccent.withOpacity(0.45)),
+                          border: Border.all(
+                            color: Colors.redAccent.withOpacity(0.45),
+                          ),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,

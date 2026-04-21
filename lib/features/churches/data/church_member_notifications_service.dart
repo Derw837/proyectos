@@ -31,35 +31,12 @@ class ChurchMemberNotificationsService {
       throw Exception('No se encontró el ID de la iglesia');
     }
 
-    final memberships = await _client
-        .from('church_memberships')
-        .select('user_id')
-        .eq('church_id', churchId);
-
-    final memberUserIds = memberships
-        .map((row) => row['user_id']?.toString() ?? '')
-        .where((id) => id.isNotEmpty)
-        .toSet()
-        .toList();
-
-    if (memberUserIds.isEmpty) {
-      return 0;
-    }
-
-    final rows = memberUserIds
-        .map((userId) => {
-      'user_id': userId,
+    await _client.from('church_announcements').insert({
       'church_id': churchId,
       'title': title.trim(),
       'message': message.trim(),
-      'type': 'post', // temporal, hasta ampliar el CHECK
-      'related_id': null,
-      'is_read': false,
-    })
-        .toList();
+    });
 
-    await _client.from('user_notifications').insert(rows);
-
-    return rows.length;
+    return 1;
   }
 }

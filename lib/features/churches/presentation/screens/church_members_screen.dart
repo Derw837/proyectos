@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:red_cristiana/core/utils/app_error_helper.dart';
 import 'package:red_cristiana/features/churches/data/church_dashboard_service.dart';
 import 'package:red_cristiana/features/churches/presentation/widgets/church_header_shell.dart';
 
@@ -61,7 +62,7 @@ class _ChurchMembersScreenState extends State<ChurchMembersScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error cargando miembros: $e')),
+        SnackBar(content: Text(await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudieron cargar los miembros en este momento.'))),
       );
     }
   }

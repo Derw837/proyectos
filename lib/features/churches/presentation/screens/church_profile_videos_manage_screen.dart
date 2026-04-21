@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:red_cristiana/core/utils/app_error_helper.dart';
 import 'package:red_cristiana/features/churches/data/church_profile_videos_service.dart';
 import 'package:red_cristiana/features/churches/presentation/widgets/church_header_shell.dart';
 import 'package:red_cristiana/features/media/presentation/screens/app_video_player_screen.dart';
@@ -46,7 +47,7 @@ class _ChurchProfileVideosManageScreenState
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error cargando videos: $e')),
+        SnackBar(content: Text(await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudieron cargar los videos en este momento.'))),
       );
     }
   }
@@ -420,7 +421,7 @@ class _ChurchProfileVideosManageScreenState
                                           .showSnackBar(
                                         SnackBar(
                                           content: Text(
-                                            'Error publicando video: $e',
+                                            await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudo publicar el video en este momento.'),
                                           ),
                                         ),
                                       );
@@ -498,7 +499,7 @@ class _ChurchProfileVideosManageScreenState
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error eliminando video: $e')),
+        SnackBar(content: Text(await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudo eliminar el video en este momento.'))),
       );
     }
   }

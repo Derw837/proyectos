@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:red_cristiana/core/utils/app_error_helper.dart';
 import 'package:red_cristiana/features/auth/presentation/screens/login_screen.dart';
 import 'package:red_cristiana/features/profile/data/profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:red_cristiana/features/notifications/presentation/screens/notifications_screen.dart';
+import 'package:red_cristiana/features/profile/presentation/screens/change_password_screen.dart';
+import 'package:red_cristiana/core/widgets/latam_location_fields.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -68,7 +71,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error cargando perfil: $e')),
+        SnackBar(content: Text(await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudo cargar tu perfil en este momento.'))),
       );
     }
   }
@@ -97,7 +100,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error guardando perfil: $e')),
+        SnackBar(content: Text(await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudo guardar tu perfil en este momento.'))),
       );
     } finally {
       if (!mounted) return;
@@ -239,19 +242,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   decoration: _decoration('Nombre', Icons.person),
                 ),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: countryController,
-                  decoration: _decoration('País', Icons.public),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: cityController,
-                  decoration: _decoration('Ciudad', Icons.location_city),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: sectorController,
-                  decoration: _decoration('Sector', Icons.map),
+                LatamLocationFields(
+                  countryController: countryController,
+                  cityController: cityController,
+                  sectorController: sectorController,
+                  requiredValidator: (value, fieldName) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Por favor selecciona $fieldName';
+                    }
+                    return null;
+                  },
+                  decorationBuilder: _decoration,
                 ),
                 const SizedBox(height: 20),
                 SizedBox(
@@ -416,6 +417,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     context,
                     MaterialPageRoute(
                       builder: (_) => const NotificationsScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              _menuTile(
+                icon: Icons.lock_outline,
+                title: 'Cambiar contraseña',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ChangePasswordScreen(),
                     ),
                   );
                 },

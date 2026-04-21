@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:red_cristiana/core/utils/app_error_helper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:red_cristiana/features/churches/data/church_posts_service.dart';
 import 'package:red_cristiana/features/churches/presentation/screens/post_gallery_screen.dart';
@@ -50,7 +51,7 @@ class _ChurchPostsManageScreenState extends State<ChurchPostsManageScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error cargando publicaciones: $e')),
+        SnackBar(content: Text(await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudieron cargar las publicaciones en este momento.'))),
       );
     }
   }
@@ -482,7 +483,7 @@ class _ChurchPostsManageScreenState extends State<ChurchPostsManageScreen> {
                                           .showSnackBar(
                                         SnackBar(
                                           content: Text(
-                                            'Error creando publicación: $e',
+                                            await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudo crear la publicación en este momento.'),
                                           ),
                                         ),
                                       );
@@ -559,7 +560,7 @@ class _ChurchPostsManageScreenState extends State<ChurchPostsManageScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error eliminando publicación: $e')),
+        SnackBar(content: Text(await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudo eliminar la publicación en este momento.'))),
       );
     }
   }

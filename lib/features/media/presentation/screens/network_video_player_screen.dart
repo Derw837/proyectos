@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:red_cristiana/core/utils/network_status_helper.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -26,11 +27,21 @@ class _NetworkVideoPlayerScreenState extends State<NetworkVideoPlayerScreen> {
   bool _isLoading = true;
   bool _showControls = true;
   String? _error;
+  bool _isRetrying = false;
   Timer? _hideTimer;
 
   @override
   void initState() {
     super.initState();
+
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
     _initVideo();
     _startAutoHideTimer();
   }
@@ -38,7 +49,7 @@ class _NetworkVideoPlayerScreenState extends State<NetworkVideoPlayerScreen> {
   @override
   void dispose() {
     _hideTimer?.cancel();
-    _controller?.dispose();
+    _disposeController();
     WakelockPlus.disable();
 
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -48,6 +59,21 @@ class _NetworkVideoPlayerScreenState extends State<NetworkVideoPlayerScreen> {
     ]);
 
     super.dispose();
+  }
+
+  Future<void> _disposeController() async {
+    final controller = _controller;
+    _controller = null;
+
+    if (controller != null) {
+      try {
+        await controller.pause();
+      } catch (_) {}
+
+      try {
+        await controller.dispose();
+      } catch (_) {}
+    }
   }
 
   void _startAutoHideTimer() {
@@ -69,21 +95,59 @@ class _NetworkVideoPlayerScreenState extends State<NetworkVideoPlayerScreen> {
 
   Future<void> _initVideo() async {
     try {
-      _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
-      await _controller!.initialize();
-      await _controller!.play();
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      await _disposeController();
+
+      final controller =
+      VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+
+      _controller = controller;
+
+      await controller.initialize();
+      await controller.play();
       await WakelockPlus.enable();
+
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _error = null;
+      });
+    } catch (e) {
+      await WakelockPlus.disable();
+
+      final friendlyMessage =
+      await NetworkStatusHelper.playerMessageForError(e);
 
       if (!mounted) return;
       setState(() {
         _isLoading = false;
+        _error = friendlyMessage;
       });
-    } catch (e) {
-      await WakelockPlus.disable();
+    }
+  }
+
+  Future<void> _retryVideo() async {
+    if (_isRetrying) return;
+
+    try {
+      setState(() {
+        _isRetrying = true;
+        _isLoading = true;
+        _error = null;
+      });
+
+      await _disposeController();
+      await Future.delayed(const Duration(milliseconds: 250));
+      await _initVideo();
+    } finally {
       if (!mounted) return;
       setState(() {
-        _isLoading = false;
-        _error = 'No se pudo reproducir este video.\n$e';
+        _isRetrying = false;
       });
     }
   }
@@ -137,10 +201,83 @@ class _NetworkVideoPlayerScreenState extends State<NetworkVideoPlayerScreen> {
     return '${d.inMinutes}:${s}';
   }
 
+  Widget _buildErrorView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(maxWidth: 420),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: Colors.white24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.error_outline_rounded,
+                color: Colors.white,
+                size: 58,
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'No se pudo reproducir este video',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                _error ?? 'Ocurrió un problema inesperado.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14.5,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 18),
+              ElevatedButton.icon(
+                onPressed: _isRetrying ? null : _retryVideo,
+                icon: _isRetrying
+                    ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+                    : const Icon(Icons.refresh),
+                label: Text(
+                  _isRetrying ? 'Reintentando...' : 'Volver a intentarlo',
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: const Text(
+                  'Volver',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -159,23 +296,9 @@ class _NetworkVideoPlayerScreenState extends State<NetworkVideoPlayerScreen> {
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _error != null
-                  ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Text(
-                    _error!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                ),
-              )
+                  ? _buildErrorView()
                   : controller == null
-                  ? const Center(
-                child: Text(
-                  'No se pudo iniciar el reproductor',
-                  style: TextStyle(color: Colors.white),
-                ),
-              )
+                  ? _buildErrorView()
                   : Center(
                 child: AspectRatio(
                   aspectRatio: controller.value.aspectRatio == 0
@@ -198,19 +321,23 @@ class _NetworkVideoPlayerScreenState extends State<NetworkVideoPlayerScreen> {
                       children: [
                         IconButton(
                           onPressed: () async {
-                            final orientation = MediaQuery.of(context).orientation;
+                            final orientation =
+                                MediaQuery.of(context).orientation;
                             if (orientation == Orientation.landscape) {
                               SystemChrome.setPreferredOrientations([
                                 DeviceOrientation.portraitUp,
                                 DeviceOrientation.portraitDown,
                               ]);
-                              SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+                              SystemChrome.setEnabledSystemUIMode(
+                                SystemUiMode.edgeToEdge,
+                              );
                             } else {
                               await WakelockPlus.disable();
                               if (mounted) Navigator.pop(context);
                             }
                           },
-                          icon: const Icon(Icons.arrow_back, color: Colors.white),
+                          icon:
+                          const Icon(Icons.arrow_back, color: Colors.white),
                         ),
                         Expanded(
                           child: Text(
@@ -224,13 +351,16 @@ class _NetworkVideoPlayerScreenState extends State<NetworkVideoPlayerScreen> {
                             ),
                           ),
                         ),
-                        IconButton(
-                          onPressed: _toggleFullscreen,
-                          icon: Icon(
-                            isLandscape ? Icons.fullscreen_exit : Icons.fullscreen,
-                            color: Colors.white,
+                        if (_error == null)
+                          IconButton(
+                            onPressed: _toggleFullscreen,
+                            icon: Icon(
+                              isLandscape
+                                  ? Icons.fullscreen_exit
+                                  : Icons.fullscreen,
+                              color: Colors.white,
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -251,7 +381,7 @@ class _NetworkVideoPlayerScreenState extends State<NetworkVideoPlayerScreen> {
                         margin: const EdgeInsets.all(12),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.75),
+                          color: Colors.black.withValues(alpha: 0.75),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Column(
@@ -292,11 +422,13 @@ class _NetworkVideoPlayerScreenState extends State<NetworkVideoPlayerScreen> {
                               children: [
                                 Text(
                                   _format(controller.value.position),
-                                  style: const TextStyle(color: Colors.white70),
+                                  style:
+                                  const TextStyle(color: Colors.white70),
                                 ),
                                 Text(
                                   _format(controller.value.duration),
-                                  style: const TextStyle(color: Colors.white70),
+                                  style:
+                                  const TextStyle(color: Colors.white70),
                                 ),
                               ],
                             ),

@@ -3,6 +3,9 @@ import 'package:red_cristiana/features/live_tv/data/live_tv_service.dart';
 import 'package:red_cristiana/features/live_tv/presentation/screens/network_stream_player_screen.dart';
 import 'package:red_cristiana/features/media/presentation/screens/app_video_player_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:red_cristiana/core/ads/ad_service.dart';
+import 'package:red_cristiana/core/ads/ad_units.dart';
+import 'package:red_cristiana/core/utils/app_error_helper.dart';
 
 class LiveTvScreen extends StatefulWidget {
   const LiveTvScreen({super.key});
@@ -13,6 +16,7 @@ class LiveTvScreen extends StatefulWidget {
 
 class _LiveTvScreenState extends State<LiveTvScreen> {
   bool isLoading = true;
+  String? loadErrorMessage;
   List<Map<String, dynamic>> allChannels = [];
   List<Map<String, dynamic>> filteredChannels = [];
   String selectedCountry = 'todos';
@@ -24,6 +28,13 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
   }
 
   Future<void> _loadChannels() async {
+    if (mounted) {
+      setState(() {
+        isLoading = true;
+        loadErrorMessage = null;
+      });
+    }
+
     try {
       final data = await LiveTvService.getActiveChannels();
 
@@ -33,16 +44,19 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
         allChannels = data;
         filteredChannels = data;
         isLoading = false;
+        loadErrorMessage = null;
       });
     } catch (e) {
       if (!mounted) return;
+      final friendly = await AppErrorHelper.friendlyMessage(
+        e,
+        fallback: 'No pudimos cargar los canales de TV en este momento.',
+      );
+
       setState(() {
         isLoading = false;
+        loadErrorMessage = friendly;
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error cargando canales: $e')),
-      );
     }
   }
 
@@ -59,6 +73,56 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
         }).toList();
       }
     });
+  }
+
+  Future<void> _openSupportVideoAndLaunchChannel() async {
+    if (filteredChannels.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No hay canales disponibles en este momento.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final shown = await AdService.showRewardedAd(
+      adUnitId: AdUnits.rewardedTvSupport,
+      onRewardEarned: () async {
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🙏 Gracias por apoyar Red Cristiana'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        if (!mounted) return;
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => NetworkStreamPlayerScreen(
+              channels: filteredChannels,
+              initialIndex: 0,
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!shown && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'El video de apoyo aún no está listo. Inténtalo de nuevo en unos segundos.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _openChannel(Map<String, dynamic> channel) async {
@@ -308,6 +372,50 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
     );
   }
 
+  Widget _errorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.wifi_off_rounded,
+              size: 72,
+              color: Colors.grey,
+            ),
+            const SizedBox(height: 18),
+            Text(
+              loadErrorMessage ??
+                  'No pudimos cargar los canales de TV en este momento.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 18),
+            ElevatedButton.icon(
+              onPressed: _loadChannels,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Reintentar'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   List<String> _availableCountries() {
     final values = allChannels
         .map((e) => e['country']?.toString().trim() ?? '')
@@ -343,17 +451,111 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : filteredChannels.isEmpty
-                ? const Center(
-              child: Text('No hay canales en vivo disponibles todavía.'),
-            )
-                : RefreshIndicator(
+                : loadErrorMessage != null && allChannels.isEmpty
+                    ? _errorState()
+                    : filteredChannels.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'No hay canales en vivo disponibles todavía.',
+                            ),
+                          )
+                        : RefreshIndicator(
               onRefresh: _loadChannels,
               child: ListView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: filteredChannels.length,
-                itemBuilder: (context, index) =>
-                    _channelCard(filteredChannels[index]),
+                itemCount: filteredChannels.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return Container(
+                      margin: const EdgeInsets.fromLTRB(0, 0, 0, 12),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(18),
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFF1B5E20),
+                            Color(0xFF2E7D32),
+                          ],
+                        ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x22000000),
+                            blurRadius: 10,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: _openSupportVideoAndLaunchChannel,
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.16),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(
+                                Icons.favorite_rounded,
+                                color: Colors.white,
+                                size: 26,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Canal de apoyo',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15.5,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Mira un video corto y luego entra directamente a nuestra señal en vivo.',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.92),
+                                      fontSize: 12.8,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.14),
+                                      borderRadius: BorderRadius.circular(999),
+                                      border: Border.all(color: Colors.white24),
+                                    ),
+                                    child: const Text(
+                                      'Ver video y entrar a TV',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 11.5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  final realIndex = index - 1;
+                  return _channelCard(filteredChannels[realIndex]);
+                },
               ),
             ),
           ),

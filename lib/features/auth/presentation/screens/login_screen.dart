@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:red_cristiana/core/utils/app_error_helper.dart';
 import 'package:red_cristiana/features/auth/data/auth_service.dart';
+import 'package:red_cristiana/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:red_cristiana/features/auth/presentation/screens/register_screen.dart';
 import 'package:red_cristiana/features/splash/presentation/screens/splash_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.showBack = false});
+
+  final bool showBack;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -47,13 +51,18 @@ class _LoginScreenState extends State<LoginScreen> {
             (route) => false,
       );
     } on AuthException catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
-    } catch (_) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ocurrió un error inesperado al iniciar sesión.'),
-        ),
+        SnackBar(content: Text(AppErrorHelper.authMessage(e.message))),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final message = await AppErrorHelper.friendlyMessage(
+        e,
+        fallback: 'No se pudo iniciar sesión en este momento.',
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
       );
     } finally {
       if (mounted) setState(() => isLoading = false);
@@ -66,8 +75,17 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await AuthService.signInWithGoogle();
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error con Google: $e')));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            await AppErrorHelper.friendlyMessage(
+              e,
+              fallback: 'No se pudo continuar con Google en este momento.',
+            ),
+          ),
+        ),
+      );
     } finally {
       if (mounted) setState(() => isGoogleLoading = false);
     }
@@ -89,62 +107,137 @@ class _LoginScreenState extends State<LoginScreen> {
     return null;
   }
 
+  Widget _smallActionButton({
+    required String text,
+    required IconData icon,
+    required VoidCallback? onTap,
+    bool filled = false,
+    bool loading = false,
+  }) {
+    return SizedBox(
+      height: 50,
+      child: filled
+          ? ElevatedButton.icon(
+        onPressed: onTap,
+        icon: loading
+            ? const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        )
+            : Icon(icon, size: 20),
+        label: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF0D47A1),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      )
+          : OutlinedButton.icon(
+        onPressed: onTap,
+        icon: loading
+            ? const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        )
+            : Icon(icon, size: 20),
+        label: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF0D47A1),
+          side: const BorderSide(color: Color(0xFF0D47A1)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FB),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
           child: Column(
             children: [
-              const SizedBox(height: 20),
-
-              /// LOGO / ICONO
-              Container(
-                width: 90,
-                height: 90,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0D47A1),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: const Icon(
-                  Icons.church,
-                  color: Colors.white,
-                  size: 46,
-                ),
+              Row(
+                children: [
+                  if (widget.showBack)
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                    )
+                  else
+                    const SizedBox(width: 48),
+                  const Spacer(),
+                ],
               ),
-
-              const SizedBox(height: 20),
-
-              const Text(
-                'Red Cristiana',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
               const SizedBox(height: 6),
-
-              const Text(
-                'Conéctate con tu fe',
-                style: TextStyle(color: Colors.black54),
-              ),
-
-              const SizedBox(height: 30),
-
-              /// TARJETA
               Container(
-                padding: const EdgeInsets.all(20),
+                width: 128,
+                height: 128,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(30),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color(0x14000000),
-                      blurRadius: 12,
-                      offset: Offset(0, 4),
+                      color: Color(0x160D47A1),
+                      blurRadius: 18,
+                      offset: Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Image.asset(
+                    'assets/images/logo_header.png',
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Bienvenido a Red Cristiana',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Ingresa con tu correo y contraseña',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.black54,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x12000000),
+                      blurRadius: 14,
+                      offset: Offset(0, 5),
                     ),
                   ],
                 ),
@@ -155,23 +248,23 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextFormField(
                         controller: emailController,
                         validator: _validateEmail,
+                        keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
                           hintText: 'Correo electrónico',
                           prefixIcon: const Icon(Icons.email_outlined),
                           filled: true,
                           fillColor: const Color(0xFFF5F7FB),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide.none,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
-
+                      const SizedBox(height: 14),
                       TextFormField(
                         controller: passwordController,
-                        obscureText: obscurePassword,
                         validator: _validatePassword,
+                        obscureText: obscurePassword,
                         decoration: InputDecoration(
                           hintText: 'Contraseña',
                           prefixIcon: const Icon(Icons.lock_outline),
@@ -183,115 +276,92 @@ class _LoginScreenState extends State<LoginScreen> {
                             },
                             icon: Icon(
                               obscurePassword
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
                             ),
                           ),
                           filled: true,
                           fillColor: const Color(0xFFF5F7FB),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide.none,
                           ),
                         ),
                       ),
-
-                      const SizedBox(height: 20),
-
-                      /// BOTÓN LOGIN
+                      const SizedBox(height: 18),
                       SizedBox(
                         width: double.infinity,
-                        height: 52,
+                        height: 54,
                         child: ElevatedButton(
                           onPressed: isLoading ? null : _login,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0D47A1),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(18),
                             ),
                           ),
                           child: isLoading
-                              ? const CircularProgressIndicator(
-                            color: Colors.white,
+                              ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.4,
+                            ),
                           )
                               : const Text(
                             'Entrar',
                             style: TextStyle(
                               fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                         ),
                       ),
-
-                      const SizedBox(height: 16),
-
-                      Row(
-                        children: const [
-                          Expanded(child: Divider()),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 10),
-                            child: Text('o'),
-                          ),
-                          Expanded(child: Divider()),
-                        ],
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      /// GOOGLE
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: OutlinedButton.icon(
-                          onPressed:
-                          isGoogleLoading ? null : _loginWithGoogle,
-                          icon: isGoogleLoading
-                              ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
+                      const SizedBox(height: 10),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ForgotPasswordScreen(),
                             ),
-                          )
-                              : const Icon(Icons.g_mobiledata, size: 28),
-                          label: const Text(
-                            'Continuar con Google',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        ),
+                          );
+                        },
+                        child: const Text('¿Olvidaste tu contraseña?'),
                       ),
                     ],
                   ),
                 ),
               ),
-
-              const SizedBox(height: 16),
-
-              TextButton(
-                onPressed: () {},
-                child: const Text('¿Olvidaste tu contraseña?'),
-              ),
-
+              const SizedBox(height: 18),
               Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('¿No tienes cuenta?'),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const RegisterScreen(),
-                        ),
-                      );
-                    },
-                    child: const Text('Crear cuenta'),
+                  Expanded(
+                    child: _smallActionButton(
+                      text: 'Registrarse\ncon email',
+                      icon: Icons.person_add_alt_1_outlined,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const RegisterScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _smallActionButton(
+                      text: 'Continuar\ncon Google',
+                      icon: Icons.g_mobiledata,
+                      onTap: isGoogleLoading ? null : _loginWithGoogle,
+                      filled: true,
+                      loading: isGoogleLoading,
+                    ),
                   ),
                 ],
               ),

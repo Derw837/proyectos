@@ -18,8 +18,10 @@ class MainHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top + 8;
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 40, 16, 10),
+      padding: EdgeInsets.fromLTRB(14, topPadding, 14, 10),
       decoration: const BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -27,22 +29,61 @@ class MainHeader extends StatelessWidget {
             color: Color(0x11000000),
             blurRadius: 10,
             offset: Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Expanded(
-            child: Text(
-              'Red Cristiana',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+          Expanded(
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    color: const Color(0xFFF4F7FD),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x12000000),
+                        blurRadius: 10,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Padding(
+                    padding: const EdgeInsets.all(3),
+                    child: Image.asset(
+                      'assets/images/logo_header.png',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Red Cristiana',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0D1B2A),
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-
           Stack(
             children: [
               IconButton(
@@ -71,23 +112,18 @@ class MainHeader extends StatelessWidget {
                 ),
             ],
           ),
-
           _HeaderIconWithLabel(
             icon: Icons.favorite_outline,
-            label: 'Donar',
+            label: 'Apóyanos',
             onTap: onDonate,
           ),
-
-          const SizedBox(width: 6),
-
+          const SizedBox(width: 4),
           _HeaderIconWithLabel(
             icon: Icons.storefront_outlined,
             label: 'Tienda',
             onTap: onStore,
           ),
-
-          const SizedBox(width: 6),
-
+          const SizedBox(width: 4),
           _HeaderIconWithLabel(
             icon: Icons.person_outline,
             label: 'Perfil',

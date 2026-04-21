@@ -13,4 +13,17 @@ class AuthService {
       kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
     );
   }
+
+  static Future<void> sendPasswordReset(String email) async {
+    await _client.auth.resetPasswordForEmail(
+      email,
+      redirectTo: 'https://pigoapp.com/reset-password-start',
+    );
+  }
+
+  static Future<void> updatePassword(String password) async {
+    await _client.auth.updateUser(
+      UserAttributes(password: password),
+    );
+  }
 }

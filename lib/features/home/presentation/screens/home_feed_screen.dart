@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:red_cristiana/core/utils/app_error_helper.dart';
 import 'package:red_cristiana/features/prayer/data/prayer_service.dart';
+import 'package:red_cristiana/features/home/data/home_feed_cache_service.dart';
 import 'package:red_cristiana/features/prayer/presentation/widgets/create_prayer_request_sheet.dart';
 import 'package:red_cristiana/core/notifications/app_refresh_bus.dart';
 import 'package:red_cristiana/features/churches/data/models/church_model.dart';
@@ -9,6 +11,8 @@ import 'package:red_cristiana/features/churches/presentation/widgets/post_images
 import 'package:red_cristiana/features/home/data/home_feed_service.dart';
 import 'package:red_cristiana/core/widgets/network_error_view.dart';
 import 'package:red_cristiana/features/media/presentation/screens/app_video_player_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:red_cristiana/core/ads/feed_inline_ad_card.dart';
 
 class HomeFeedScreen extends StatefulWidget {
   final String? initialChurchId;
@@ -33,6 +37,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   bool hasError = false;
   String errorMessage = '';
 
+  bool isChurchAccount = false;
+
   final ScrollController scrollController = ScrollController();
   final TextEditingController searchController = TextEditingController();
 
@@ -40,7 +46,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   bool hasMore = true;
 
   static const int pageSize = 10;
-  int currentOffset = 0;
+  static const int adFrequency = 10;
+  String? nextCursor;
 
   List<Map<String, dynamic>> allItems = [];
   List<Map<String, dynamic>> filteredItems = [];
@@ -63,8 +70,11 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   void initState() {
     super.initState();
     selectedTab = widget.initialTab;
-    selectedChurchId = widget.initialChurchId ?? '';
+    selectedChurchId =
+    widget.initialTab == 'my_church' ? (widget.initialChurchId ?? '') : '';
 
+    _loadUserRole();
+    _loadCachedFeed();
     _loadFeed();
     searchController.addListener(_applyFilters);
     scrollController.addListener(_onScroll);
@@ -85,6 +95,25 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     searchController.dispose();
     scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUserRole() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+
+      final profile = await Supabase.instance.client
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (!mounted) return;
+
+      setState(() {
+        isChurchAccount = profile?['role']?.toString() == 'church';
+      });
+    } catch (_) {}
   }
 
   void _onScroll() {
@@ -117,7 +146,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       isCheckingNewFeedItems = true;
 
       final response = await HomeFeedService.getGeneralFeedPage(
-        offset: 0,
+        olderThan: null,
         limit: pageSize,
       );
 
@@ -204,9 +233,19 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       allItems = uniqueItems;
       countries = countrySet.toList()..sort();
       cities = citySet.toList()..sort();
-      currentOffset = allItems.length;
+      nextCursor = allItems.isNotEmpty
+          ? allItems.last['created_at']?.toString()
+          : null;
       pendingNewItems = [];
     });
+
+    HomeFeedCacheService.saveFeed(
+      items: uniqueItems,
+      hasMore: hasMore,
+      nextCursor: uniqueItems.isNotEmpty
+          ? uniqueItems.last['created_at']?.toString()
+          : null,
+    );
 
     _applyFilters();
 
@@ -226,13 +265,13 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
           isLoading = true;
           hasError = false;
           errorMessage = '';
-          currentOffset = 0;
+          nextCursor = null;
           hasMore = true;
         });
       }
 
       final response = await HomeFeedService.getGeneralFeedPage(
-        offset: 0,
+        olderThan: null,
         limit: pageSize,
       );
 
@@ -263,20 +302,73 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         isLoading = false;
         hasError = false;
         hasMore = pageHasMore;
-        currentOffset = data.length;
+        nextCursor = response['next_cursor']?.toString();
         pendingNewItems = [];
       });
+
+      await HomeFeedCacheService.saveFeed(
+        items: data,
+        hasMore: pageHasMore,
+        nextCursor: response['next_cursor']?.toString(),
+      );
 
       _applyFilters();
     } catch (e) {
       if (!mounted) return;
 
+      final message = await AppErrorHelper.friendlyMessage(
+        e,
+        fallback: 'No se pudo cargar esta sección en este momento.',
+      );
+
       setState(() {
         isLoading = false;
         hasError = true;
-        errorMessage =
-        'Creo que no tienes internet. Verifica tu conexión y vuelve a intentarlo.';
+        errorMessage = message;
       });
+    }
+  }
+
+
+
+  Future<void> _loadCachedFeed() async {
+    try {
+      final cached = await HomeFeedCacheService.readFeed();
+      if (cached == null || !mounted) return;
+
+      final data = List<Map<String, dynamic>>.from(cached['items'] ?? []);
+      if (data.isEmpty) return;
+
+      final countrySet = <String>{};
+      final citySet = <String>{};
+
+      for (final item in data) {
+        final church = item['church'] is Map<String, dynamic>
+            ? Map<String, dynamic>.from(item['church'])
+            : <String, dynamic>{};
+
+        final country = church['country']?.toString().trim() ?? '';
+        final city = church['city']?.toString().trim() ?? '';
+
+        if (country.isNotEmpty) countrySet.add(country);
+        if (city.isNotEmpty) citySet.add(city);
+      }
+
+      setState(() {
+        allItems = data;
+        countries = countrySet.toList()..sort();
+        cities = citySet.toList()..sort();
+        hasMore = cached['has_more'] == true;
+        nextCursor = cached['next_cursor']?.toString().isEmpty == true
+            ? null
+            : cached['next_cursor']?.toString();
+        isLoading = false;
+        hasError = false;
+      });
+
+      _applyFilters();
+    } catch (_) {
+      // si falla el cache, no detenemos la app
     }
   }
 
@@ -289,7 +381,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       });
 
       final response = await HomeFeedService.getGeneralFeedPage(
-        offset: currentOffset,
+        olderThan: nextCursor,
         limit: pageSize,
       );
 
@@ -343,7 +435,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         allItems = uniqueItems;
         countries = countrySet.toList()..sort();
         cities = citySet.toList()..sort();
-        currentOffset = allItems.length;
+        nextCursor = response['next_cursor']?.toString();
         hasMore = pageHasMore;
         isLoadingMore = false;
       });
@@ -386,13 +478,15 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 
       final matchesCity = selectedCity.isEmpty || city == selectedCity;
 
-      final matchesChurch =
-          selectedChurchId.isEmpty || churchId == selectedChurchId;
+      final matchesChurch = selectedTab == 'my_church'
+          ? (selectedChurchId.isEmpty || churchId == selectedChurchId)
+          : true;
 
       bool matchesTab = true;
 
       if (selectedTab == 'my_church') {
-        matchesTab = isMyChurch;
+        matchesTab = isMyChurch ||
+            (selectedChurchId.isNotEmpty && churchId == selectedChurchId);
       } else if (selectedTab == 'posts') {
         matchesTab = type == 'post';
       } else if (selectedTab == 'videos') {
@@ -429,6 +523,12 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     });
 
     _applyFilters();
+
+    HomeFeedCacheService.saveFeed(
+      items: allItems,
+      hasMore: hasMore,
+      nextCursor: nextCursor,
+    );
   }
 
   void _removeItemLocally(String type, String id) {
@@ -440,6 +540,12 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     });
 
     _applyFilters();
+
+    HomeFeedCacheService.saveFeed(
+      items: allItems,
+      hasMore: hasMore,
+      nextCursor: nextCursor,
+    );
   }
 
   void _resetToGeneralFeed() {
@@ -765,12 +871,18 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 
     final current = Map<String, dynamic>.from(allItems[index]);
     final supportedByMyChurch = current['supported_by_my_church'] == true;
+    final canChurchSupportDirectly =
+        current['can_church_support_directly'] == true;
     final count = (current['church_support_count'] ?? 0) as int;
 
+    if (supportedByMyChurch || !canChurchSupportDirectly) {
+      return;
+    }
+
     final updated = Map<String, dynamic>.from(current)
-      ..['supported_by_my_church'] = !supportedByMyChurch
-      ..['church_support_count'] =
-      supportedByMyChurch ? count - 1 : count + 1;
+      ..['supported_by_my_church'] = true
+      ..['church_support_count'] = count + 1
+      ..['can_church_support_directly'] = false;
 
     _replaceItemLocally(updated);
 
@@ -788,20 +900,26 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 
   Future<void> _requestMyChurchPrayer(String prayerRequestId) async {
     final index = allItems.indexWhere(
-          (item) =>
-      item['type'] == 'prayer' &&
-          item['id'].toString() == prayerRequestId,
+          (item) => item['type'] == 'prayer' && item['id'].toString() == prayerRequestId,
     );
     if (index == -1) return;
 
     final current = Map<String, dynamic>.from(allItems[index]);
-    final requestedMyChurch = current['requested_my_church'] == true;
+
+    final alreadyRequested = current['requested_my_church'] == true;
+    final alreadySupporting = current['supported_by_my_church'] == true;
+    final canRequest = current['can_request_my_church'] == true;
+
+    if (alreadyRequested || alreadySupporting || !canRequest) {
+      return;
+    }
+
     final count = (current['my_church_request_count'] ?? 0) as int;
 
     final updated = Map<String, dynamic>.from(current)
-      ..['requested_my_church'] = !requestedMyChurch
-      ..['my_church_request_count'] =
-      requestedMyChurch ? count - 1 : count + 1;
+      ..['requested_my_church'] = true
+      ..['my_church_request_count'] = count + 1
+      ..['can_request_my_church'] = false;
 
     _replaceItemLocally(updated);
 
@@ -856,7 +974,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       showDragHandle: true,
       builder: (_) => CreatePrayerRequestSheet(
         onCreated: () async {
-          await _loadFeed();
+          await _loadFeed(refresh: true);
           _applyFilters();
         },
       ),
@@ -873,6 +991,12 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         onTap: () {
           setState(() {
             selectedTab = value;
+
+            if (value == 'my_church') {
+              selectedChurchId = widget.initialChurchId ?? '';
+            } else {
+              selectedChurchId = '';
+            }
           });
           _applyFilters();
         },
@@ -1248,9 +1372,12 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 
   Widget _prayerCard(Map<String, dynamic> item) {
     final userName = item['user_name']?.toString() ?? 'Un usuario';
+    final churchName = item['church_name']?.toString().trim() ?? '';
+    final authorType = item['author_type']?.toString() ?? 'user';
+    final messageText = item['message_text']?.toString().trim() ?? '';
     final category = item['category']?.toString() ?? 'otro';
     final isForMe = item['is_for_me'] == true;
-    final targetName = item['target_name']?.toString().trim() ?? '';
+    final targetName = item['target_name']?.toString().trim() ?? '';;
     final userSupportCount = item['user_support_count'] ?? 0;
     final churchSupportCount = item['church_support_count'] ?? 0;
     final supportedByMe = item['supported_by_me'] == true;
@@ -1260,9 +1387,13 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     final requestedMyChurch = item['requested_my_church'] == true;
     final myChurchRequestCount = item['my_church_request_count'] ?? 0;
     final myChurchId = item['my_church_id']?.toString() ?? '';
-    final canRequestMyChurch = myChurchId.isNotEmpty && !isChurchAccount;
+    final belongsToMyChurch = item['belongs_to_my_church'] == true;
+    final canRequestMyChurch = item['can_request_my_church'] == true;
+    final canChurchSupportDirectly = item['can_church_support_directly'] == true;
 
-    final prayerText = isForMe
+    final prayerText = authorType == 'church'
+        ? messageText
+        : isForMe
         ? '$userName pide oración por su ${PrayerService.categoryLabel(category)}.'
         : '$userName pide oración por $targetName por ${PrayerService.categoryLabel(category)}.';
 
@@ -1299,13 +1430,27 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Petición de oración',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15.5,
-                    ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Petición de oración',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15.5,
+                        ),
+                      ),
+                      if (authorType == 'church' && churchName.isNotEmpty)
+                        Text(
+                          churchName,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0D47A1),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 if (createdByMe)
@@ -1398,17 +1543,20 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () =>
-                      _togglePrayerChurchSupport(item['id'].toString()),
-                  icon: const Icon(Icons.church),
+                  onPressed: supportedByMyChurch || !canChurchSupportDirectly
+                      ? null
+                      : () => _togglePrayerChurchSupport(item['id'].toString()),
+                  icon: Icon(
+                    supportedByMyChurch ? Icons.verified : Icons.church,
+                  ),
                   label: Text(
-                    supportedByMyChurch ? 'Iglesia orando' : 'Iglesia ora',
+                    supportedByMyChurch ? 'Mi iglesia está orando' : 'Iglesia ora',
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: supportedByMyChurch
-                        ? const Color(0xFF2E7D32)
-                        : const Color(0xFF0D47A1),
+                    backgroundColor: const Color(0xFF2E7D32),
+                    disabledBackgroundColor: const Color(0xFF2E7D32),
                     foregroundColor: Colors.white,
+                    disabledForegroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -1441,26 +1589,41 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                       ),
                     ),
                   ),
-                  if (canRequestMyChurch) ...[
+                  if (myChurchId.isNotEmpty && !isChurchAccount && !belongsToMyChurch) ...[
                     const SizedBox(width: 10),
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () =>
-                            _requestMyChurchPrayer(item['id'].toString()),
-                        icon: const Icon(Icons.groups_2_outlined),
+                        onPressed: canRequestMyChurch
+                            ? () => _requestMyChurchPrayer(item['id'].toString())
+                            : null,
+                        icon: Icon(
+                          supportedByMyChurch
+                              ? Icons.verified
+                              : requestedMyChurch
+                              ? Icons.mark_email_read_outlined
+                              : Icons.groups_2_outlined,
+                        ),
                         label: Text(
-                          requestedMyChurch
-                              ? 'Solicitud enviada'
+                          supportedByMyChurch
+                              ? 'Mi iglesia está orando'
+                              : requestedMyChurch
+                              ? 'Ya fue solicitada'
                               : 'Pedir a mi iglesia',
-                          style: const TextStyle(
-                            fontSize: 11,
-                          ),
+                          style: const TextStyle(fontSize: 11),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: requestedMyChurch
+                          backgroundColor: supportedByMyChurch
                               ? const Color(0xFF2E7D32)
+                              : requestedMyChurch
+                              ? const Color(0xFF1565C0)
                               : const Color(0xFF0D47A1),
+                          disabledBackgroundColor: supportedByMyChurch
+                              ? const Color(0xFF2E7D32)
+                              : requestedMyChurch
+                              ? const Color(0xFF1565C0)
+                              : const Color(0xFFB0BEC5),
                           foregroundColor: Colors.white,
+                          disabledForegroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -1586,10 +1749,20 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     return const SizedBox.shrink();
   }
 
+  int _adCountBeforeIndex(int index) {
+    return index ~/ (adFrequency + 1);
+  }
+
+  bool _isAdIndex(int index) {
+    return index > 0 && (index + 1) % (adFrequency + 1) == 0;
+  }
+
   Widget _buildTopInfo() {
     return Column(
       children: [
-        if (widget.initialChurchId != null && widget.initialChurchId!.isNotEmpty)
+        if (selectedTab == 'my_church' &&
+            widget.initialChurchId != null &&
+            widget.initialChurchId!.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
             child: Container(
@@ -1728,10 +1901,138 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
+  Widget _loadingCard() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE9EEF6),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  children: [
+                    Container(
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE9EEF6),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      height: 10,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F4F8),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            height: 12,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE9EEF6),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            height: 12,
+            width: MediaQuery.of(context).size.width * 0.45,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F4F8),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            height: 180,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE9EEF6),
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEndOfFeed() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: const Color(0xFFE3EAF3)),
+          ),
+          child: Text(
+            'Ya viste las publicaciones más recientes',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade700,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInitialLoadingView() {
+    return ListView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 90),
+      itemCount: 4,
+      itemBuilder: (_, __) => _loadingCard(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F7FB),
+        body: Column(
+          children: [
+            _buildTopInfo(),
+            const SizedBox(height: 2),
+            _buildFilters(),
+            const SizedBox(height: 6),
+            Expanded(child: _buildInitialLoadingView()),
+          ],
+        ),
+      );
     }
 
     if (hasError) {
@@ -1750,9 +2051,9 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         foregroundColor: Colors.white,
         elevation: 3,
         icon: const Icon(Icons.volunteer_activism_rounded, size: 20),
-        label: const Text(
-          'Pedir oración',
-          style: TextStyle(
+        label: Text(
+          isChurchAccount ? 'Publicar oración' : 'Pedir oración',
+          style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,
           ),
@@ -1784,21 +2085,62 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
             )
                 : RefreshIndicator(
               onRefresh: () => _loadFeed(),
-              child: ListView.builder(
-                controller: scrollController,
-                padding: const EdgeInsets.fromLTRB(12, 2, 12, 90),
-                itemCount: filteredItems.length + (isLoadingMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index >= filteredItems.length) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 18),
-                      child: Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                    );
-                  }
+              child: Builder(
+                builder: (context) {
+                  final int totalAds = filteredItems.isEmpty
+                      ? 0
+                      : filteredItems.length ~/ adFrequency;
 
-                  return _feedItem(filteredItems[index]);
+                  final int extraFooterItems = isLoadingMore
+                      ? 1
+                      : (!hasMore && filteredItems.isNotEmpty ? 1 : 0);
+
+                  final int totalItemCount =
+                      filteredItems.length + totalAds + extraFooterItems;
+
+                  return ListView.builder(
+                    controller: scrollController,
+                    padding: const EdgeInsets.fromLTRB(12, 2, 12, 90),
+                    itemCount: totalItemCount,
+                    itemBuilder: (context, index) {
+                      final int feedLengthWithAds = filteredItems.length + totalAds;
+
+                      if (index >= feedLengthWithAds) {
+                        if (isLoadingMore) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            child: Column(
+                              children: [
+                                const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Cargando más publicaciones...',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return _buildEndOfFeed();
+                      }
+
+                      if (_isAdIndex(index)) {
+                        return const FeedInlineAdCard();
+                      }
+
+                      final int realIndex = index - _adCountBeforeIndex(index);
+                      return _feedItem(filteredItems[realIndex]);
+                    },
+                  );
                 },
               ),
             ),

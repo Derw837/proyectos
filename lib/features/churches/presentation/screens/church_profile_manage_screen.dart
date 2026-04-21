@@ -3,12 +3,14 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:red_cristiana/core/utils/app_error_helper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:red_cristiana/features/auth/presentation/screens/login_screen.dart';
 import 'package:red_cristiana/features/churches/data/church_media_service.dart';
 import 'package:red_cristiana/features/churches/data/church_service.dart';
 import 'package:red_cristiana/features/churches/presentation/widgets/church_header_shell.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:red_cristiana/core/widgets/latam_location_fields.dart';
 
 class ChurchProfileManageScreen extends StatefulWidget {
   const ChurchProfileManageScreen({super.key});
@@ -173,7 +175,7 @@ class _ChurchProfileManageScreenState
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error cargando la iglesia: $e')),
+        SnackBar(content: Text(await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudo cargar el perfil de la iglesia en este momento.'))),
       );
     }
   }
@@ -294,7 +296,7 @@ class _ChurchProfileManageScreenState
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error guardando cambios: $e')),
+        SnackBar(content: Text(await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudieron guardar los cambios en este momento.'))),
       );
     } finally {
       if (!mounted) return;
@@ -1162,31 +1164,13 @@ class _ChurchProfileManageScreenState
                       ),
                     ],
                     fields: [
-                      TextFormField(
-                        controller: countryController,
-                        validator: (value) => _required(value, 'el país'),
-                        decoration: _decoration('País', Icons.public),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: cityController,
-                        validator: (value) => _required(value, 'la ciudad'),
-                        decoration:
-                        _decoration('Ciudad', Icons.location_city),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: sectorController,
-                        decoration: _decoration('Sector', Icons.map_outlined),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: addressController,
-                        validator: (value) => _required(value, 'la dirección'),
-                        decoration: _decoration(
-                          'Dirección',
-                          Icons.location_on_outlined,
-                        ),
+                      LatamLocationFields(
+                        countryController: countryController,
+                        cityController: cityController,
+                        sectorController: sectorController,
+                        addressController: addressController,
+                        requiredValidator: _required,
+                        decorationBuilder: _decoration,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(

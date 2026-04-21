@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:red_cristiana/features/prayer/data/prayer_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class CreatePrayerRequestSheet extends StatefulWidget {
   final Future<void> Function() onCreated;
@@ -17,8 +18,12 @@ class CreatePrayerRequestSheet extends StatefulWidget {
 class _CreatePrayerRequestSheetState extends State<CreatePrayerRequestSheet> {
   bool isForMe = true;
   bool isSaving = false;
+  bool isChurchAccount = false;
+  bool isCheckingRole = true;
+
   String selectedCategory = 'salud';
   final targetNameController = TextEditingController();
+  final messageController = TextEditingController();
 
   final categories = const [
     {'value': 'salud', 'label': 'Salud'},
@@ -37,29 +42,86 @@ class _CreatePrayerRequestSheetState extends State<CreatePrayerRequestSheet> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadRole();
+  }
+
+  @override
   void dispose() {
     targetNameController.dispose();
+    messageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadRole() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        if (!mounted) return;
+        setState(() {
+          isCheckingRole = false;
+          isChurchAccount = false;
+        });
+        return;
+      }
+
+      final profile = await Supabase.instance.client
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (!mounted) return;
+
+      setState(() {
+        isChurchAccount = profile?['role']?.toString() == 'church';
+        isCheckingRole = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        isChurchAccount = false;
+        isCheckingRole = false;
+      });
+    }
   }
 
   Future<void> _submit() async {
     final name = targetNameController.text.trim();
+    final message = messageController.text.trim();
 
-    if (!isForMe) {
-      if (name.isEmpty) {
+    if (isChurchAccount) {
+      if (message.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Escribe el nombre y apellido')),
+          const SnackBar(content: Text('Escribe la oración que deseas publicar')),
         );
         return;
       }
 
-      if (name.split(' ').length < 2) {
+      if (message.length < 12) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Ingresa nombre y apellido completo'),
-          ),
+          const SnackBar(content: Text('Escribe un poco más de detalle')),
         );
         return;
+      }
+    } else {
+      if (!isForMe) {
+        if (name.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Escribe el nombre y apellido')),
+          );
+          return;
+        }
+
+        if (name.split(' ').length < 2) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Ingresa nombre y apellido completo'),
+            ),
+          );
+          return;
+        }
       }
     }
 
@@ -68,11 +130,17 @@ class _CreatePrayerRequestSheetState extends State<CreatePrayerRequestSheet> {
     });
 
     try {
-      await PrayerService.createPrayerRequest(
-        isForMe: isForMe,
-        targetName: targetNameController.text.trim(),
-        category: selectedCategory,
-      );
+      if (isChurchAccount) {
+        await PrayerService.createChurchPrayerRequest(
+          messageText: message,
+        );
+      } else {
+        await PrayerService.createPrayerRequest(
+          isForMe: isForMe,
+          targetName: targetNameController.text.trim(),
+          category: selectedCategory,
+        );
+      }
 
       await widget.onCreated();
 
@@ -80,7 +148,13 @@ class _CreatePrayerRequestSheetState extends State<CreatePrayerRequestSheet> {
       Navigator.pop(context);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tu petición fue publicada')),
+        SnackBar(
+          content: Text(
+            isChurchAccount
+                ? 'La oración de la iglesia fue publicada'
+                : 'Tu petición fue publicada',
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -107,74 +181,99 @@ class _CreatePrayerRequestSheetState extends State<CreatePrayerRequestSheet> {
           bottom: MediaQuery.of(context).viewInsets.bottom + 20,
         ),
         child: SingleChildScrollView(
-          child: Column(
+          child: isCheckingRole
+              ? const Padding(
+            padding: EdgeInsets.symmetric(vertical: 30),
+            child: Center(child: CircularProgressIndicator()),
+          )
+              : Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'Pedir oración',
-                style: TextStyle(
+              Text(
+                isChurchAccount
+                    ? 'Publicar oración de la iglesia'
+                    : 'Pedir oración',
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 18),
-              SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment<bool>(
-                    value: true,
-                    label: Text('Para mí'),
-                    icon: Icon(Icons.person),
-                  ),
-                  ButtonSegment<bool>(
-                    value: false,
-                    label: Text('Para otra persona'),
-                    icon: Icon(Icons.people),
-                  ),
-                ],
-                selected: {isForMe},
-                onSelectionChanged: (value) {
-                  setState(() {
-                    isForMe = value.first;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: selectedCategory,
-                items: categories
-                    .map(
-                      (e) => DropdownMenuItem<String>(
-                    value: e['value']!,
-                    child: Text(e['label']!),
-                  ),
-                )
-                    .toList(),
-                onChanged: (value) {
-                  if (value == null) return;
-                  setState(() {
-                    selectedCategory = value;
-                  });
-                },
-                decoration: InputDecoration(
-                  labelText: 'Categoría',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
-              if (!isForMe) ...[
-                const SizedBox(height: 16),
+
+              if (isChurchAccount) ...[
                 TextField(
-                  controller: targetNameController,
+                  controller: messageController,
+                  minLines: 5,
+                  maxLines: 8,
                   decoration: InputDecoration(
-                    labelText: 'Nombre y apellido',
-                    hintText: 'Ej: Juan Pérez',
+                    labelText: 'Mensaje de oración',
+                    hintText:
+                    'Ejemplo: Queridos hermanos, pedimos oración por la campaña que se realizará este fin de semana...',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                 ),
+              ] else ...[
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment<bool>(
+                      value: true,
+                      label: Text('Para mí'),
+                      icon: Icon(Icons.person),
+                    ),
+                    ButtonSegment<bool>(
+                      value: false,
+                      label: Text('Para otra persona'),
+                      icon: Icon(Icons.people),
+                    ),
+                  ],
+                  selected: {isForMe},
+                  onSelectionChanged: (value) {
+                    setState(() {
+                      isForMe = value.first;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedCategory,
+                  items: categories
+                      .map(
+                        (e) => DropdownMenuItem<String>(
+                      value: e['value']!,
+                      child: Text(e['label']!),
+                    ),
+                  )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() {
+                      selectedCategory = value;
+                    });
+                  },
+                  decoration: InputDecoration(
+                    labelText: 'Categoría',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+                if (!isForMe) ...[
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: targetNameController,
+                    decoration: InputDecoration(
+                      labelText: 'Nombre y apellido',
+                      hintText: 'Ej: Juan Pérez',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ],
               ],
+
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
@@ -183,7 +282,11 @@ class _CreatePrayerRequestSheetState extends State<CreatePrayerRequestSheet> {
                   onPressed: isSaving ? null : _submit,
                   child: isSaving
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Publicar petición'),
+                      : Text(
+                    isChurchAccount
+                        ? 'Publicar oración'
+                        : 'Publicar petición',
+                  ),
                 ),
               ),
             ],

@@ -86,6 +86,12 @@ class ChurchEventsService {
   }
 
   static Future<void> deleteEvent(String eventId) async {
+    await _client
+        .from('user_notifications')
+        .delete()
+        .eq('type', 'event')
+        .eq('related_id', eventId);
+
     await _client.from('church_events').delete().eq('id', eventId);
   }
 

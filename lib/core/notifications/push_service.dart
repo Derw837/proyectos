@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:red_cristiana/core/notifications/app_refresh_bus.dart';
 import 'package:red_cristiana/core/notifications/in_app_notification_banner.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:red_cristiana/core/notifications/local_notification_service.dart';
 
 class PushService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -83,7 +84,8 @@ class PushService {
       );
 
       final type = message.data['type']?.toString().toLowerCase() ?? '';
-      if (type == 'post' || type == 'event') {
+
+      if (type == 'post' || type == 'event' || type == 'video') {
         AppRefreshBus.emit('feed_refresh');
       } else {
         AppRefreshBus.emit('general_refresh');

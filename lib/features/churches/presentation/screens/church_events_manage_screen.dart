@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:red_cristiana/core/utils/app_error_helper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:red_cristiana/features/churches/presentation/widgets/church_header_shell.dart';
 import 'package:red_cristiana/features/events/data/church_events_service.dart';
@@ -46,7 +47,7 @@ class _ChurchEventsManageScreenState extends State<ChurchEventsManageScreen> {
       setState(() => isLoading = false);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error cargando eventos: $e')),
+        SnackBar(content: Text(await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudieron cargar los eventos en este momento.'))),
       );
     }
   }
@@ -599,7 +600,7 @@ class _ChurchEventsManageScreenState extends State<ChurchEventsManageScreen> {
                                           .showSnackBar(
                                         SnackBar(
                                           content: Text(
-                                            'Error creando evento: $e',
+                                            await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudo crear el evento en este momento.'),
                                           ),
                                         ),
                                       );
@@ -680,7 +681,7 @@ class _ChurchEventsManageScreenState extends State<ChurchEventsManageScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error eliminando evento: $e')),
+        SnackBar(content: Text(await AppErrorHelper.friendlyMessage(e, fallback: 'No se pudo eliminar el evento en este momento.'))),
       );
     }
   }

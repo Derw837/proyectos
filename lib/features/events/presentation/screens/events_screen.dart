@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:red_cristiana/core/utils/app_error_helper.dart';
 import 'package:red_cristiana/features/churches/data/models/church_model.dart';
 import 'package:red_cristiana/features/churches/presentation/screens/church_detail_screen.dart';
 import 'package:red_cristiana/features/events/data/church_events_service.dart';
@@ -50,8 +51,55 @@ class _EventsScreenState extends State<EventsScreen> {
 
   @override
   void dispose() {
+    searchController.removeListener(_applyFilters);
     searchController.dispose();
     super.dispose();
+  }
+
+  String _normalizeText(String value) {
+    return value
+        .toLowerCase()
+        .trim()
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('ü', 'u')
+        .replaceAll('ñ', 'n')
+        .replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  List<String> _uniqueSorted(List<String> items) {
+    final map = <String, String>{};
+
+    for (final item in items) {
+      final trimmed = item.trim();
+      if (trimmed.isEmpty) continue;
+
+      final key = _normalizeText(trimmed);
+      map.putIfAbsent(key, () => trimmed);
+    }
+
+    final result = map.values.toList();
+    result.sort((a, b) => _normalizeText(a).compareTo(_normalizeText(b)));
+    return result;
+  }
+
+  List<String> _availableCitiesForCountry(String country) {
+    final source = country.trim().isEmpty
+        ? allEvents
+        : allEvents.where((event) {
+      final eventCountry = event['country']?.toString() ?? '';
+      return _normalizeText(eventCountry) == _normalizeText(country);
+    }).toList();
+
+    return _uniqueSorted(
+      source
+          .map((event) => event['city']?.toString() ?? '')
+          .where((e) => e.trim().isNotEmpty)
+          .toList(),
+    );
   }
 
   Future<void> _loadEvents() async {
@@ -80,11 +128,15 @@ class _EventsScreenState extends State<EventsScreen> {
     } catch (e) {
       if (!mounted) return;
 
+      final message = await AppErrorHelper.friendlyMessage(
+        e,
+        fallback: 'No se pudo cargar esta sección en este momento.',
+      );
+
       setState(() {
         isLoading = false;
         hasError = true;
-        errorMessage =
-        'Creo que no tienes internet. Verifica tu conexión y vuelve a intentarlo.';
+        errorMessage = message;
       });
     }
   }
@@ -95,8 +147,9 @@ class _EventsScreenState extends State<EventsScreen> {
         nearMeOnly = false;
         selectedCountry = '';
         selectedCity = '';
-        _applyFilters();
       });
+
+      _applyFilters();
       return;
     }
 
@@ -151,10 +204,11 @@ class _EventsScreenState extends State<EventsScreen> {
           city.toLowerCase().contains(query) ||
           country.toLowerCase().contains(query);
 
-      final matchesCountry =
-          selectedCountry.isEmpty || country == selectedCountry;
+      final matchesCountry = selectedCountry.isEmpty ||
+          _normalizeText(country) == _normalizeText(selectedCountry);
 
-      final matchesCity = selectedCity.isEmpty || city == selectedCity;
+      final matchesCity = selectedCity.isEmpty ||
+          _normalizeText(city) == _normalizeText(selectedCity);
 
       final matchesChurch =
           selectedChurchId.isEmpty || churchId == selectedChurchId;
@@ -183,6 +237,8 @@ class _EventsScreenState extends State<EventsScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
+            final modalCountries = _uniqueSorted(countries);
+            final modalCities = _availableCitiesForCountry(tempCountry);
             Widget dropdownFilter({
               required String label,
               required String value,
@@ -190,8 +246,12 @@ class _EventsScreenState extends State<EventsScreen> {
               required ValueChanged<String?> onChanged,
               required IconData icon,
             }) {
+              final safeItems = _uniqueSorted(items);
+              final safeValue =
+              value.isEmpty || !safeItems.contains(value) ? null : value;
+
               return DropdownButtonFormField<String>(
-                initialValue: value.isEmpty ? null : value,
+                value: safeValue,
                 isExpanded: true,
                 decoration: InputDecoration(
                   labelText: label,
@@ -203,7 +263,7 @@ class _EventsScreenState extends State<EventsScreen> {
                     borderSide: BorderSide.none,
                   ),
                 ),
-                items: items
+                items: safeItems
                     .map(
                       (item) => DropdownMenuItem<String>(
                     value: item,
@@ -272,20 +332,25 @@ class _EventsScreenState extends State<EventsScreen> {
                     dropdownFilter(
                       label: 'País',
                       value: tempCountry,
-                      items: countries,
+                      items: modalCountries,
                       icon: Icons.public,
                       onChanged: (value) {
-                        setSheetState(() => tempCountry = value ?? '');
+                        setSheetState(() {
+                          tempCountry = value ?? '';
+                          tempCity = '';
+                        });
                       },
                     ),
                     const SizedBox(height: 12),
                     dropdownFilter(
                       label: 'Ciudad',
                       value: tempCity,
-                      items: cities,
+                      items: modalCities,
                       icon: Icons.location_city,
                       onChanged: (value) {
-                        setSheetState(() => tempCity = value ?? '');
+                        setSheetState(() {
+                          tempCity = value ?? '';
+                        });
                       },
                     ),
                     const SizedBox(height: 16),
@@ -600,19 +665,19 @@ class _EventsScreenState extends State<EventsScreen> {
   }
 
   Widget _searchChip() {
-    final hasFilters = searchController.text.trim().isNotEmpty ||
-        selectedCountry.isNotEmpty ||
-        selectedCity.isNotEmpty;
+    final hasManualFilters = searchController.text.trim().isNotEmpty ||
+        (!nearMeOnly &&
+            (selectedCountry.isNotEmpty || selectedCity.isNotEmpty));
 
     return Padding(
       padding: const EdgeInsets.only(right: 10),
       child: ActionChip(
         onPressed: _openSearchSheet,
         avatar: Icon(
-          hasFilters ? Icons.tune : Icons.search,
+          hasManualFilters ? Icons.tune : Icons.search,
           size: 18,
         ),
-        label: Text(hasFilters ? 'Buscar activo' : 'Buscar'),
+        label: Text(hasManualFilters ? 'Editar búsqueda' : 'Buscar'),
       ),
     );
   }
